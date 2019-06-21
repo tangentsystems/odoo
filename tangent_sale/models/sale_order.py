@@ -42,4 +42,8 @@ class SaleOrderLine(models.Model):
             'parent_id': self.parent_task_id.id,
         })
         return vals
-    
+
+    def _check_ordered_qty(self, qty=1.0):
+        self.ensure_one()
+        # todo: use float comparison to be safe
+        return self.product_uom_qty == qty
