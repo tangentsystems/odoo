@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
+from odoo.tools import float_compare
 
 
 class SaleOrder(models.Model):
@@ -45,5 +46,4 @@ class SaleOrderLine(models.Model):
 
     def _check_ordered_qty(self, qty=1.0):
         self.ensure_one()
-        # todo: use float comparison to be safe
-        return self.product_uom_qty == qty
+        return float_compare(self.product_uom_qty, qty, precision_rounding=self.product_uom.rounding) == 0

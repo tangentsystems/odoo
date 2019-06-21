@@ -37,9 +37,9 @@ class ProjectTask(models.Model):
                 if sale_line._check_ordered_qty() and sale_line.qty_delivered != 1.0:
                     sale_line.qty_delivered = 1.0
                 if sale_line.invoice_status == 'to invoice':
-                    inv_id = self.env['account.invoice'].create({
-                        'partner_id': sale_line.order_id.partner_invoice_id.id or sale_line.order_id.partner_id.id,
-                    })
+                    inv_id = self.env['account.invoice'].create(
+                        sale_line.order_id._prepare_invoice()
+                    )
                     inv_line_id = self.env['account.invoice.line'].create(
                         sale_line.invoice_line_create_vals(inv_id.id, 1.0)
                     )
