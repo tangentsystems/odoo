@@ -5,6 +5,7 @@
     'description': """
     Specification :
 
+1. ID=2006993
 Tangent Systems needs two fields added to SO Lines that will affect Project.Tasks:
 
 A ‘Parent Task’ field on the Sale.order form and on the Sales order lines
@@ -84,6 +85,30 @@ Two project.tasks, ‘Pancakes: Nice Task’ & ‘Fun in the Sun: Great Task’,
 The ‘Parent Task’ on project.task ‘Fun in the Sun: Great Task’ is set to ‘Fun in the Sun’
 
 The ‘Parent Task’ on project.task ‘Pancakes: Nice Task’ is set to ‘Pancakes’
+
+2. ID=2006996 
+The client would like once a ‘Delivery Date’(Studio Field) gets filled out manually on a task that a draft invoice is created. The draft invoice number should populate on the ‘Invoice #’ (Custom Field) field on the task as a clickable link to the Invoice that is generated.
+
+
+Rules:
+
+
+All tasks will ONLY be ordered in quantities of 1 - There will NOT be a SO line with a ordered quantity greater than one
+
+This action only runs on billable taks.
+
+A task is ‘billable’ based on the ‘Sales Order Item’ field being filled out
+
+This link is what I suggest we use to create the draft invoice
+
+Increasing delivered quantity by one of that corresponding Sales Order Item and creating a draft invoice linked to that sales order for that delivered Sales Order Item
+
+Invoices will only have one item per invoice
+
+There should be a link from the Invoice to the Project.Task so that fields from the invoice lines and the account.invoice can be pulled to the Project.Task using Studio
+
+
+This field is only going be visable on certain stages (This will be handled through studio)
     """,
     'license': 'OEEL-1',
     'author': 'Odoo Inc',
