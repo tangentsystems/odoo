@@ -12,11 +12,9 @@ class SaleOrder(models.Model):
     @api.multi
     @api.onchange('parent_task_id')
     def onchange_parent_task_id(self):
-        for order in self:
-            if order.parent_task_id:
-                for sol in order.order_line:
-                    if sol.is_service:
-                        sol.parent_task_id = order.parent_task_id
+        for order in self.filtered('parent_task_id'):
+            for sol in order.order_line.filtered('is_service'):    
+                sol.parent_task_id = order.parent_task_id
 
 
 class SaleOrderLine(models.Model):
@@ -41,9 +39,11 @@ class SaleOrderLine(models.Model):
         vals.update({
             'name': '{}: {}'.format(self.parent_task_id.name, self.task_name) if self.parent_task_id and self.task_name else vals.get('name'),
             'parent_id': self.parent_task_id.id,
+            'overwrite_subtask_implied': True,
         })
         return vals
 
     def _check_ordered_qty(self, qty=1.0):
         self.ensure_one()
         return float_compare(self.product_uom_qty, qty, precision_rounding=self.product_uom.rounding) == 0
+

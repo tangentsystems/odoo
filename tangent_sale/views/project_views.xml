@@ -7,6 +7,7 @@
       <field name="inherit_id" ref="project.view_task_form2"/>
       <field name="arch" type="xml">
 	<xpath expr="//form[1]/sheet[1]/group[1]/group[1]/field[@name='user_id']" position="after">
+	  <field name="overwrite_subtask_implied" invisible="1"/>
 	  <field name="delivered_date"/>
 	  <field name="invoice_id" attrs="{'invisible': [('delivered_date', '=', False)]}" readonly="1"/>
 	</xpath>

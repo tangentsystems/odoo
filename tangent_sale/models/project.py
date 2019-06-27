@@ -9,21 +9,7 @@ class ProjectTask(models.Model):
     delivered_date = fields.Date('Delivered Date')
     invoice_id = fields.Many2one('account.invoice', ondelete='set null', string='Invoice #')
 
-    # @api.multi
-    # @api.depends('sale_line_id', 'sale_line_id.invoice_lines', 'delivered_date')
-    # def _compute_invoice_id(self):
-    #     for task in self:
-    #         if task.delivered_date and task.sale_line_id:
-    #             if not task.sale_line_id.invoice_lines and task.sale_line_id.invoice_status == 'to_invoice':
-    #                 task.sale_line_id.sudo()._write({'qty_delivered': 1.0})
-    #                 inv = self.env['account.invoice'].create({
-    #                     'partner_id': task.sale_line_id.order_id.partner_invoice_id.id or task.sale_line_id.order_id.partner_id.id,
-    #                 })
-    #                 inv_line_id = self.env['account.invoice.line'].create(
-    #                     task.sale_line_id.invoice_line_create_vals(inv.id, 1.0)
-    #                 )
-    #             if task.sale_line_id.invoice_lines:
-    #                 task.invoice_id = task.sale_line_id.invoice_lines[0].invoice_id
+    overwrite_subtask_implied = fields.Boolean('Overwrite Default Parent', help='A technical field to overwrite the default behavior of customer, email_from and sale order line on subtask being replaced by those on the parent task.')
 
     def assign_task_invoice_id(self):
         self.ensure_one()
@@ -53,5 +39,21 @@ class ProjectTask(models.Model):
             for task in self:
                 task.assign_task_invoice_id()
         return res
+
+    @api.model
+    def _subtask_implied_fields(self):
+        res = super(ProjectTask, self)._subtask_implied_fields()
+        if self.env.context.get('overwrite_subtask_implied', False) or self.overwrite_subtask_implied:
+            res = []
+        return res
     
+    @api.model
+    def create(self, vals):
+        # before create let's pass in some context
+        if 'overwrite_subtask_implied' not in self.env.context:
+            ctx = dict(self.env.context, overwrite_subtask_implied=vals.get('overwrite_subtask_implied', False))
+            res = super(ProjectTask, self).with_context(ctx).create(vals)
+        else:
+            res = super(ProjectTask, self).create(vals)
+        return res
         
