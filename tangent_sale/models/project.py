@@ -31,6 +31,13 @@ class ProjectTask(models.Model):
                     )
                         
             task.invoice_id = inv_id
+
+    # @api.multi
+    # @api.onchange('parent_id')
+    # def onchange_parent_id(self):
+    #     for task in self:
+    #         if task.parent_id:
+    #             task.overwrite_subtask_implied = task.parent_id.overwrite_subtask_implied
     
     @api.multi
     def write(self, vals):
@@ -45,7 +52,9 @@ class ProjectTask(models.Model):
         res = super(ProjectTask, self)._subtask_implied_fields()
         if self.env.context.get('overwrite_subtask_implied', False) or self.overwrite_subtask_implied:
             res = []
-        return res
+        if self.parent_id and self.parent_id.overwrite_subtask_implied:
+            res = ['overwrite_subtask_implied']
+        return res 
     
     @api.model
     def create(self, vals):

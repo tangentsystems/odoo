@@ -32,6 +32,12 @@ class SaleOrderLine(models.Model):
                 'parent_task_id': self.order_id.parent_task_id.id,
                 'task_name': self.product_id.task_name,
             })
+        if self.product_id and self.order_id.parent_task_id and self.product_id.project_id != self.order_id.parent_task_id.project_id:
+            warning_mess = {
+                'title': _('Not Same Project'),
+                'message' : _('The product belongs to project [{}] while parent task belongs to project [{}].'.format(self.product_id.project_id.display_name, self.order_id.parent_task_id.project_id.display_name))
+            }
+            res.update({'warning': warning_mess})
         return res
 
     def _timesheet_create_task_prepare_values(self, project):
@@ -39,7 +45,7 @@ class SaleOrderLine(models.Model):
         vals.update({
             'name': '{}: {}'.format(self.parent_task_id.name, self.task_name) if self.parent_task_id and self.task_name else vals.get('name'),
             'parent_id': self.parent_task_id.id,
-            'overwrite_subtask_implied': True,
+            'overwrite_subtask_implied': True,  # this means this task's sale order should be the current sale sale's order, not the task's parent's order
         })
         return vals
 
