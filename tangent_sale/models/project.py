@@ -22,7 +22,7 @@ class ProjectTask(models.Model):
             else:
                 if sale_line._check_ordered_qty() and sale_line.qty_delivered != 1.0:
                     sale_line.qty_delivered = 1.0
-                if sale_line.invoice_status == 'to invoice':
+                if sale_line.invoice_status == 'to invoice' and not sale_line.order_id.multiline_invoice:
                     inv_id = self.env['account.invoice'].create(
                         sale_line.order_id._prepare_invoice()
                     )

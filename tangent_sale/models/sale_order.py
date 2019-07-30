@@ -9,12 +9,19 @@ class SaleOrder(models.Model):
 
     parent_task_id = fields.Many2one('project.task', ondelete='set null', string='Parent Task')
 
+    multiline_invoice = fields.Boolean('Multi-line Invoice')
+    
     @api.multi
     @api.onchange('parent_task_id')
     def onchange_parent_task_id(self):
         for order in self.filtered('parent_task_id'):
             for sol in order.order_line.filtered('is_service'):    
                 sol.parent_task_id = order.parent_task_id
+
+    @api.onchange('partner_id')
+    def onchange_partner_id_multiline_invoice(self):
+        if self.partner_id:
+            self.multiline_invoice = self.partner_id.multiline_invoice
 
 
 class SaleOrderLine(models.Model):

@@ -117,6 +117,7 @@ This field is only going be visable on certain stages (This will be handled thro
     'data': [
         'views/sale_order_views.xml',
         'views/product_views.xml',
-        'views/project_views.xml'
+        'views/project_views.xml',
+        'views/res_partner_views.xml'
     ],
 }
