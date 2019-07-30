@@ -20,6 +20,7 @@ class SaleOrder(models.Model):
 
     @api.onchange('partner_id')
     def onchange_partner_id_multiline_invoice(self):
+        self.ensure_one()
         if self.partner_id:
             self.multiline_invoice = self.partner_id.multiline_invoice
 
