@@ -13,6 +13,8 @@ class ResPartner(models.Model):
         if not self.parent_id:
             return
         res = super(ResPartner, self).onchange_parent_id()
+        if not res.get('value'):
+            res['value'] = {}
         res['value'].update({'multiline_invoice': self.parent_id.multiline_invoice})
         return res
     
