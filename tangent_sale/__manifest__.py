@@ -115,6 +115,7 @@ This field is only going be visable on certain stages (This will be handled thro
     'version': '0.1',
     'depends': ['project', 'sale_management', 'account_accountant', 'sale_timesheet'],
     'data': [
+        'security/ir.model.access.csv',
         'views/sale_order_views.xml',
         'views/product_views.xml',
         'views/project_views.xml',

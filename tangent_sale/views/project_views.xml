@@ -9,6 +9,7 @@
 	<xpath expr="//form[1]/sheet[1]/group[1]/group[1]/field[@name='user_id']" position="after">
 	  <field name="overwrite_subtask_implied" invisible="1"/>
 	  <field name="delivered_date"/>
+	  <field name="task_type_id"/>
 	  <field name="invoice_id" attrs="{'invisible': ['|', ('delivered_date', '=', False), ('sale_line_id', '=', False)]}"/>
 	</xpath>
       </field>

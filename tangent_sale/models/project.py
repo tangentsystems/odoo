@@ -6,6 +6,7 @@ from odoo.exceptions import ValidationError
 class ProjectTask(models.Model):
     _inherit = 'project.task'
 
+    task_type_id = fields.Many2one('product.task.type', ondelete='set null', string='Task Type', readonly=True)
     delivered_date = fields.Date('Delivered Date')
     invoice_id = fields.Many2one('account.invoice', ondelete='set null', string='Invoice #')
 
