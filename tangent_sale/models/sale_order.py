@@ -29,7 +29,7 @@ class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
     parent_task_id = fields.Many2one('project.task', ondelete='set null', string='Parent Task')
-    site = fields.Char('Site')
+    site = fields.Many2one('project.site', ondelete='set null', string='Site')
     task_name = fields.Char('Task Name')
     task_type_id = fields.Many2one('product.task.type', ondelete='set null', string='Task Type')
 

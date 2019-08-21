@@ -3,6 +3,13 @@ from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 
 
+class ProjectSite(models.Model):
+    _name = 'project.site'
+    _description = 'Site'
+
+    name = fields.Char('Name')
+
+
 class ProjectTask(models.Model):
     _inherit = 'project.task'
 
