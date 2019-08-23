@@ -29,13 +29,13 @@ class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
     parent_task_id = fields.Many2one('project.task', ondelete='set null', string='Parent Task')
-    site = fields.Many2one('project.site', ondelete='set null', string='Site')
+    site_id = fields.Many2one('project.site', ondelete='set null', string='Site')
     task_name = fields.Char('Task Name')
     task_type_id = fields.Many2one('product.task.type', ondelete='set null', string='Task Type')
 
     def _get_task_name(self):
         self.ensure_one()
-        return '{}: {}'.format(self.site, self.product_id.name) if self.product_id and self.site else ''
+        return '{}: {}'.format(self.site_id.name, self.product_id.name) if self.product_id and self.site_id else ''
     
     @api.multi
     @api.onchange('product_id', 'site')
