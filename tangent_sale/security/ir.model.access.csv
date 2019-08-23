@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_product_task_type,access_product_task_type,tangent_sale.model_product_task_type,,1,1,1,1
+access_project_site,access_project_site,tangent_sale.model_project_site,,1,1,1,1
