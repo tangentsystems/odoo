@@ -38,7 +38,7 @@ class SaleOrderLine(models.Model):
         return '{}: {}'.format(self.site_id.name, self.product_id.name) if self.product_id and self.site_id else ''
     
     @api.multi
-    @api.onchange('product_id', 'site')
+    @api.onchange('product_id', 'site_id')
     def product_id_change(self):
         res = super(SaleOrderLine, self).product_id_change()
         # if self.order_id and self.is_service and not self.is_expense:
