@@ -35,8 +35,8 @@ class ResCompany(models.Model):
                                                    self.env.ref('account.data_account_type_current_liabilities'), company)
 
                     # Property
-                    company.check_create_property('property_account_customer_deposit_id', prepayment)
-                    company.check_create_property('property_account_vendor_deposit_id', deposit)
+                    company.check_create_property('property_account_customer_deposit_id', deposit)
+                    company.check_create_property('property_account_vendor_deposit_id', prepayment)
 
     @api.model
     def check_create_account(self, code, name, user_type, company):
