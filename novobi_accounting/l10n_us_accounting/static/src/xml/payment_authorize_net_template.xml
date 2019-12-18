@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates>
+    <t t-name="authorize_net_form">
+        <div id="section_submit">
+            <button id="btn_submit" type="button" class="btn btn-sm btn btn-primary">Pay Now</button>
+        </div>
+    </t>
+</templates>

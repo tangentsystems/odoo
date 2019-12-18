@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Add find other matching popup -->
+    <record id="view_account_find_other_matching_usa" model="ir.ui.view">
+        <field name="name">account.find.other.matching.form.usa</field>
+        <field name="model">account.bank.statement.line</field>
+        <field name="arch" type="xml">
+            <form string="Match Transactions" create="0" delete="0">
+                <sheet string="Match Transactions">
+                    <field name="status" invisible="1"/>
+                    <field name="candidate_transactions_ids" nolabel="1" widget="one2many_list">
+                        <tree string="Match Transactions" create="0" delete="0" editable="bottom" noStickyHeader="1">
+                            <field name="selected_item" is_boolean_editable="1"/>
+                            <field name="date"/>
+                            <field name="name"/>
+                            <field name="partner_id"/>
+                            <field name="journal_currency_id" invisible="1"/>
+                            <field name="total_amount"/>
+                        </tree>
+                    </field>
+                    <group>
+                        <group>
+                            <field name="show_add_transaction" invisible="1"/>
+                            <field name="add_transaction_input"
+                                   attrs="{'invisible': [('show_add_transaction', '=', False)], 'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="new_date_input" string="Date"
+                                   attrs="{'invisible': [('add_transaction_input', '=', False)], 'required': [('add_transaction_input', '=', True)], 'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="new_partner_id_input"
+                                   attrs="{'invisible': [('add_transaction_input', '=', False)], 'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="new_account_id_input" attrs="{'invisible': [('add_transaction_input', '=', False)], 'required': [('add_transaction_input', '=', True)],
+                                'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="new_memo_input"
+                                   attrs="{'invisible': [('add_transaction_input', '=', False)], 'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="new_amount_input" readonly="1"
+                                   attrs="{'invisible': [('add_transaction_input', '=', False)]}"/>
+                        </group>
+                        <group class="oe_subtotal_footer oe_right">
+                            <field name="journal_currency_id" invisible="1"/>
+                            <field name="amount_unsigned" string="Downloaded transaction"/>
+                            <field name="selected_transactions_amount"/>
+                            <field name="new_amount_input" string="New Transaction" attrs="{'invisible': [('add_transaction_input', '=', False)]}"/>
+                            <field name="difference_other_matching" class="oe_subtotal_footer_separator"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Save" name="select_other_transaction" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-default" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Add find other matching action -->
+    <record id="action_account_find_other_matching_usa" model="ir.actions.act_window">
+        <field name="name">Match Transactions</field>
+        <field name="res_model">account.bank.statement.line</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_account_find_other_matching_usa"/>
+        <field name="context">{}</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

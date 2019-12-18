@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="l10n_us_accounting.assets_backend_usa" name="Backend Assets USA" inherit_id="web.assets_backend">
+        <xpath expr="." position="inside">
+            <link rel="stylesheet" type="text/css" href="/l10n_us_accounting/static/src/css/common.css"/>
+            <link rel="stylesheet" type="text/css" href="/l10n_us_accounting/static/src/css/tablesorter.css"/>
+            <link rel="stylesheet" type="text/css" href="/l10n_us_accounting/static/src/css/usa_customer.css"/>
+            <link rel="stylesheet" type="text/scss" href="/l10n_us_accounting/static/src/scss/search_view.scss"/>
+            <link rel="stylesheet" type="text/css" href="/l10n_us_accounting/static/src/css/usa_account_followup_report.css"/>
+
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/dialog.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/jquery.tablesorter.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/account_payment_field.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/search_menu_amount.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/usa_bank_reconciliation.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/rule_selector.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/model_field_selector_usa.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/rule_domain.js"></script>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/account_reports.js"></script>
+        </xpath>
+    </template>
+
+    <template id="l10n_us_accounting.assets_common" name="Common Assets USA" inherit_id="web.report_assets_common">
+    <xpath expr="." position="inside">
+        <link rel="stylesheet" type="text/less" href="/l10n_us_accounting/static/src/scss/check_printing.scss"/>
+    </xpath>
+</template>
+</odoo>
