@@ -1,0 +1,105 @@
+<odoo>
+    <!--Account Tag-->
+    <record id="account_tag_bs_accrued_expense" model="account.account.tag">
+        <field name="name">BS/Accrued Expenses</field>
+        <field name="applicability">accounts</field>
+    </record>
+    <record id="account_tag_bs_portion_payable" model="account.account.tag">
+        <field name="name">BS/Current Portion of Notes Payable</field>
+        <field name="applicability">accounts</field>
+    </record>
+    <record id="account_tag_bs_note_payable_less" model="account.account.tag">
+        <field name="name">BS/Notes Payable, less current portion</field>
+        <field name="applicability">accounts</field>
+    </record>
+    <record id="account_tag_bs_accrued_interest" model="account.account.tag">
+        <field name="name">BS/Accrued Interest Payable</field>
+        <field name="applicability">accounts</field>
+    </record>
+
+    <!--BALANCE SHEET-->
+    <!--Prepayments-->
+    <record id="account_reports.account_financial_report_prepayements0" model="account.financial.html.report.line">
+        <field name="name">Prepaid Expenses</field>
+    </record>
+    <!--Plus Fixed Assets-->
+    <record id="account_reports.account_financial_report_fixed_assets_view0" model="account.financial.html.report.line">
+        <field name="name">Property and Equipment, Net</field>
+    </record>
+    <!--Plus Non-current Assets-->
+    <record id="account_reports.account_financial_report_non_current_assets_view0" model="account.financial.html.report.line">
+        <field name="name">Other long-term assets</field>
+    </record>
+
+    <record id="account_reports.account_financial_report_current_liabilities1" model="account.financial.html.report.line">
+        <field name="domain" eval="[
+        ('account_id.user_type_id', 'in',[ref('account.data_account_type_current_liabilities'),
+        ref('account.data_account_type_credit_card')]),
+        ('account_id.tag_ids', 'not in', [ref('firefly_account_reports.account_tag_bs_accrued_expense'),
+        ref('firefly_account_reports.account_tag_bs_portion_payable'),
+        ref('firefly_account_reports.account_tag_bs_note_payable_less'),
+        ref('firefly_account_reports.account_tag_bs_accrued_interest')])]"/>
+        <field name="level" eval="3" />
+    </record>
+
+    <record id="account_reports.account_financial_report_current_liabilities_payable" model="account.financial.html.report.line">
+        <field name="level" eval="3" />
+    </record>
+
+    <!--New sections-->
+    <record id="account_financial_report_bs_accrued_expense" model="account.financial.html.report.line">
+        <field name="name">Accrued Expenses</field>
+        <field name="code">CL3</field>
+        <field name="parent_id" ref='account_reports.account_financial_report_current_liabilities0'/>
+        <field name="domain" eval="[('account_id.tag_ids', '=', ref('firefly_account_reports.account_tag_bs_accrued_expense'))]"/>
+        <field name="groupby">account_id</field>
+        <field name="formulas">balance = -sum.balance</field>
+        <field name="sequence" eval="3"/>
+        <field name="green_on_positive" eval="False"/>
+        <field name="level" eval="3" />
+    </record>
+    <record id="account_financial_report_bs_portion_payable" model="account.financial.html.report.line">
+        <field name="name">Current Portion of Notes Payable</field>
+        <field name="code">CL4</field>
+        <field name="parent_id" ref='account_reports.account_financial_report_current_liabilities0'/>
+        <field name="domain" eval="[('account_id.tag_ids', '=', ref('firefly_account_reports.account_tag_bs_portion_payable'))]"/>
+        <field name="groupby">account_id</field>
+        <field name="formulas">balance = -sum.balance</field>
+        <field name="sequence" eval="4"/>
+        <field name="green_on_positive" eval="False"/>
+        <field name="level" eval="3" />
+    </record>
+
+    <record id="account_financial_report_bs_note_payable_less" model="account.financial.html.report.line">
+        <field name="name">Notes Payable, less current portion</field>
+        <field name="code">NPL</field>
+        <field name="parent_id" ref='account_reports.account_financial_report_liabilities_view0'/>
+        <field name="domain" eval="[('account_id.tag_ids', '=', ref('firefly_account_reports.account_tag_bs_note_payable_less'))]" />
+        <field name="groupby">account_id</field>
+        <field name="formulas">balance = -sum.balance</field>
+        <field name="sequence" eval="4"/>
+        <field name="green_on_positive" eval="False"/>
+        <field name="level" eval="2" />
+    </record>
+
+    <record id="account_financial_report_bs_accrued_interest" model="account.financial.html.report.line">
+        <field name="name">Accrued Interest Payable</field>
+        <field name="code">AIP</field>
+        <field name="parent_id" ref='account_reports.account_financial_report_liabilities_view0'/>
+        <field name="domain" eval="[('account_id.tag_ids', '=', ref('firefly_account_reports.account_tag_bs_accrued_interest'))]" />
+        <field name="groupby">account_id</field>
+        <field name="formulas">balance = -sum.balance</field>
+        <field name="sequence" eval="5"/>
+        <field name="green_on_positive" eval="False"/>
+        <field name="level" eval="2" />
+    </record>
+
+    <record id="account_reports.account_financial_report_liabilities_view0" model="account.financial.html.report.line">
+        <field name="formulas">balance = CL.balance + NL.balance + NPL.balance + AIP.balance</field>
+    </record>
+
+    <record id="account_reports.account_financial_report_current_liabilities0" model="account.financial.html.report.line">
+        <field name="formulas">balance = CL1.balance + CL2.balance + CL3.balance + CL4.balance</field>
+        <field name="level" eval="2" />
+    </record>
+</odoo>
