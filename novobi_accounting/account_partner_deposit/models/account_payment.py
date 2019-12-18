@@ -34,9 +34,9 @@ class PaymentDeposit(models.Model):
     @api.onchange('partner_id')
     def _update_default_deposit_account(self):
         if self.partner_id and self.is_deposit:
-            if self.partner_id.property_account_customer_deposit_id:
+            if self.partner_id.property_account_customer_deposit_id and self.partner_type == 'customer':
                 self.property_account_customer_deposit_id = self.partner_id.property_account_customer_deposit_id.id
-            elif self.partner_id.property_account_vendor_deposit_id:
+            elif self.partner_id.property_account_vendor_deposit_id and self.partner_type == 'supplier':
                 self.property_account_vendor_deposit_id = self.partner_id.property_account_vendor_deposit_id.id
 
     @api.multi
