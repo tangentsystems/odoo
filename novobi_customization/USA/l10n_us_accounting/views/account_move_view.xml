@@ -1,0 +1,42 @@
+<odoo>
+     <!--Cancel Journal Entry-->
+    <record id="view_account_move_reconciliation_confirm_form" model="ir.ui.view">
+        <field name="name">account.move.cancel.button.reconciliation.confirm</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account_cancel.view_move_form_inherit_account_cancel"/>
+        <field name="arch" type="xml">
+            <button name="button_cancel" position="before">
+                <field name="has_been_reviewed" invisible="1"/>
+                <button name="button_cancel" states="posted" string="Cancel Entry" type="object"
+                        groups="account.group_account_invoice"
+                        attrs="{'invisible':['|', ('has_been_reviewed', '!=', True)]}"
+                        context="{'reconciled_warning': True}"
+                        confirm="This journal entry has been reviewed for bank reconciliation. Canceling this journal entry will affect your reconciliation data. Do you still want to cancel it?"/>
+            </button>
+            <xpath expr="//button[@name='button_cancel'][2]" position="attributes">
+                <attribute name="attrs">{'invisible':['|', ('has_been_reviewed', '=', True)]}</attribute>
+                <attribute name="context">{'reconciled_warning': True}</attribute>
+            </xpath>
+
+            <sheet position="after">
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
+            </sheet>
+        </field>
+    </record>
+
+    <!--Search View-->
+    <record id="view_account_move_amount_filter" model="ir.ui.view">
+        <field name="name">account.move.amount.filter</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_account_move_filter"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <filter name="amount" string="AmountSearchRange" help="__widget__"
+                    context='{"title_display": "Search by Amount"}'/>
+            </field>
+        </field>
+    </record>
+</odoo>

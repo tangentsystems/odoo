@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-extend="mail.widget.Thread.Messages">
+        <t t-jquery="t[t-foreach*='messages']" t-operation="after">
+            <div class="o_thread_message">
+                <div class="typing_indicator">
+                    <em> Odoobot is typing......</em>
+                </div>
+            </div>
+        </t>
+    </t>
+</templates>

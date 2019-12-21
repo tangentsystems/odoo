@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="0">
+    <record id="view_order_form_inherit_tangent" model="ir.ui.view">
+      <field name="name">order_form_inherit_tangent</field>
+      <field name="model">sale.order</field>
+      <field name="inherit_id" ref="sale.view_order_form"/>
+      <field name="arch" type="xml">
+	<xpath expr="//field[@name='partner_id']" position="after">
+	  <field name="parent_task_id" domain="[('parent_id', '=', False)]"/>
+	  <field name="multiline_invoice"/>
+	</xpath>
+	<xpath expr="//form[1]/sheet[1]/notebook[1]/page[@name='order_lines']/field[@name='order_line']/form[1]/group[1]/group[1]/field[@name='product_id']" position="after">
+	  <field name="site_id"/>
+	  <field name="task_name"/>
+	  <field name="task_type_id"/>
+	  <field name="parent_task_id" domain="[('parent_id', '=', False)]"/>
+	</xpath>
+	<xpath expr="//form[1]/sheet[1]/notebook[1]/page[@name='order_lines']/field[@name='order_line']/tree[1]/field[@name='product_id']" position="after">
+	  <field name="site_id"/>
+	  <field name="task_name"/>
+	  <field name="task_type_id"/>
+	</xpath>
+	<xpath expr="//form[1]/sheet[1]/notebook[1]/page[@name='order_lines']/field[@name='order_line']/tree[1]/field[@name='name']" position="after">
+	  <field name="parent_task_id" domain="[('parent_id', '=', False)]"/>
+	</xpath>
+      </field>
+    </record>
+  </data>
+</odoo>
