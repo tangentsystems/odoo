@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Update us_check_margin_top -->
+    <function name="write" model="res.company">
+        <function name="search" model="res.company">
+            <value eval="[]"/>
+        </function>
+        <value eval="{'account_check_printing_margin_top': 0.3}"/>
+    </function>
+</odoo>

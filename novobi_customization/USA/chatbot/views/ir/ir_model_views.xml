@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_model_form" model="ir.ui.view">
+        <field name="model">ir.model</field>
+        <field name="inherit_id" ref="base.view_model_form" />
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Search by Chatbot">
+                    <field name="search_by_field_ids" domain="[('model_id.model', '=', model)]"/>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+</odoo>

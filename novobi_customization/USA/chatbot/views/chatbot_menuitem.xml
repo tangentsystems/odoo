@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top menu item -->
+    <menuitem id="menu_chatbot"
+        name="ChatBot"
+        web_icon="chatbot,static/description/icon.png"
+        sequence="100"
+    />
+
+
+    <menuitem id="menu_df_history"
+        name="History"
+        parent="chatbot.menu_chatbot"
+        action="chatbot.dialog_history_action"
+        sequence="110"
+    />
+
+    <menuitem id="menu_chatbot_config"
+        name="Configuration"
+        parent="chatbot.menu_chatbot"
+        sequence="120"
+    />
+    <menuitem id="menu_df_intent"
+        name="Intents"
+        parent="chatbot.menu_chatbot_config"
+        action="chatbot.dialog_intent_action"
+        sequence="121"
+    />
+    <menuitem id="menu_df_entity_type"
+        name="Entity Types"
+        parent="chatbot.menu_chatbot_config"
+        action="chatbot.dialog_entity_type_action"
+        sequence="122"
+    />
+
+</odoo>
