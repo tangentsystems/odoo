@@ -66,6 +66,9 @@
             <field name="analytic_account_id" position="attributes">
                 <attribute name="attrs">{'invisible': ['|', ('has_second_line', '=', True), ('internal_transfer', '=', True)]}</attribute>
             </field>
+            <field name="analytic_tag_ids" position="attributes">
+                <attribute name="attrs">{'invisible': ['|', ('has_second_line', '=', True), ('internal_transfer', '=', True)]}</attribute>
+            </field>
 
             <field name="label" position="after">
                 <field name="payee" attrs="{'invisible': [('internal_transfer', '=', True)]}"/>
@@ -104,6 +107,7 @@
                         <tree editable="bottom">
                             <field name="account_id"/>
                             <field name="analytic_account_id" groups="analytic.group_analytic_accounting" domain="[('company_id', '=', parent.company_id)]" context="{'default_partner_id': parent.payee}"/>
+                            <field name="analytic_tag_ids" widget="many2many_tags" groups="analytic.group_analytic_tags"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="amount" attrs="{'required': [('parent.amount_type', '=', 'fixed')], 'column_invisible': [('parent.amount_type', '!=', 'fixed')]}"/>
                             <field name="amount_percentage" attrs="{'required': [('parent.amount_type', '=', 'percentage')], 'column_invisible': [('parent.amount_type', '=', 'fixed')]}"/>
@@ -148,8 +152,13 @@
                                    attrs="{'required': [('action_type', '=', 'add'), ('split_transaction', '=', False), ('status', '=', 'open')],
                                    'invisible': ['|', ('action_type', 'in', ('match', 'transfer')), '&amp;', ('action_type', '=', 'add'), ('split_transaction', '=', True)],
                                     'readonly': [('status', '!=', 'open')]}"/>
-                            <field name="analytic_account_id"
-                                   attrs="{'invisible': ['|', ('action_type', 'in', ('match', 'transfer')), '&amp;', ('action_type', '=', 'add'), ('split_transaction', '=', True)],
+                            <field name="analytic_account_id" groups="analytic.group_analytic_accounting"
+                                   attrs="{'invisible': ['|', ('action_type', 'in', ('match', 'transfer')),
+                                   '&amp;', ('action_type', '=', 'add'), ('split_transaction', '=', True)],
+                                    'readonly': [('status', '!=', 'open')]}"/>
+                            <field name="analytic_tag_ids" widget="many2many_tags" groups="analytic.group_analytic_tags"
+                                   attrs="{'invisible': ['|', ('action_type', 'in', ('match', 'transfer')),
+                                   '&amp;', ('action_type', '=', 'add'), ('split_transaction', '=', True)],
                                     'readonly': [('status', '!=', 'open')]}"/>
                             <field name="account_id_transfer" string="Account"
                                    attrs="{'required': [('action_type', '=', 'transfer')],
@@ -188,7 +197,9 @@
                             attrs="{'readonly': [('status', '!=', 'open')]}">
                             <tree editable="bottom">
                                 <field name="account_id" attrs="{'required': [('parent.action_type', '=', 'add'), ('parent.split_transaction', '=', True)]}"/>
-                                <field name="analytic_account_id" groups="analytic.group_analytic_accounting" domain="[('company_id', '=', parent.company_id)]" context="{'default_partner_id': parent.partner_id}"/>
+                                <field name="analytic_account_id" groups="analytic.group_analytic_accounting"
+                                       domain="[('company_id', '=', parent.company_id)]" context="{'default_partner_id': parent.partner_id}"/>
+                                <field name="analytic_tag_ids" widget="many2many_tags" groups="analytic.group_analytic_tags"/>
                                 <field name="currency_id" invisible="1"/>
                                 <field name="amount"/>
                             </tree>

@@ -30,6 +30,7 @@ class AccountBankStatementLineUSA(models.Model):
 
     # New fields
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', ondelete='set null')
+    analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags')
     amount_unsigned = fields.Monetary(string='Amount', digits=0, currency_field='journal_currency_id', readonly=True,
                                       compute='_compute_amount_unsigned', store=True)
 
@@ -288,6 +289,7 @@ class AccountBankStatementLineUSA(models.Model):
                 record.update({
                     'account_id': None,
                     'analytic_account_id': None,
+                    'analytic_tag_ids': None,
                     'account_id_transfer': None,
                     'partner_id': None,
                     'split_transaction': False,
@@ -299,6 +301,7 @@ class AccountBankStatementLineUSA(models.Model):
                     'candidate_transactions_ids': None,
                     'account_id': None,
                     'analytic_account_id': None,
+                    'analytic_tag_ids': None,
                     'partner_id': None,
                     'split_transaction': False,
                     'add_transaction': False,
@@ -317,7 +320,8 @@ class AccountBankStatementLineUSA(models.Model):
                 record.update({
                     'line_ids': None,
                     'account_id': None,
-                    'analytic_account_id': None
+                    'analytic_account_id': None,
+                    'analytic_tag_ids': None
                 })
 
     @api.multi
@@ -617,11 +621,13 @@ class AccountBankStatementLineUSA(models.Model):
             vals['line_ids'] = [(0, 0, {'name': description,
                                         'account_id': account_id.id,
                                         'account_analytic_id': record.analytic_account_id.id,
+                                        'analytic_tag_ids': [(6, 0, record.analytic_tag_ids.ids)],
                                         'price_unit': amount})]
         else:  # split case
             vals['line_ids'] = [(0, 0, {'name': description,
                                         'account_id': line.account_id.id,
                                         'account_analytic_id': line.analytic_account_id.id,
+                                        'analytic_tag_ids': [(6, 0, line.analytic_tag_ids.ids)],
                                         'price_unit': line.amount}) for line in record.line_ids]
 
         if record.transaction_type == 'amount_paid':
@@ -894,6 +900,8 @@ class AccountBankStatementLineSplitAccountUSA(models.Model):
 
     account_id = fields.Many2one('account.account', string='Account', domain=[('deprecated', '=', False)])
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', ondelete='set null')
+    analytic_tag_ids = fields.Many2many('account.analytic.tag', relation='bsl_split_analytic_tag_rel',
+                                        string='Analytic Tags')
     amount = fields.Monetary(string='Amount')
     currency_id = fields.Many2one('res.currency', string='Account Currency',
                                   default=lambda self: self.env.user.company_id.currency_id,
