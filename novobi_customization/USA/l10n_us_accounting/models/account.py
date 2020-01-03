@@ -57,14 +57,14 @@ class AccountReconcileModelUSA(models.Model):
     @api.onchange('internal_transfer', 'has_second_line')
     def _onchange_has_second_line(self):
         if self.internal_transfer:
-            self.has_second_line = self.line_ids = self.payee = self.account_id = self.analytic_account_id = False
+            self.has_second_line = self.line_ids = self.payee = self.account_id = self.analytic_account_id = self.analytic_tag_ids = False
         else:
             self.account_id_transfer = None
 
         if not self.has_second_line:
             self.line_ids = None
         else:
-            self.account_id = self.account_id_transfer = self.analytic_account_id = None
+            self.account_id = self.account_id_transfer = self.analytic_account_id = self.analytic_tag_ids = None
 
     @api.onchange('amount_type')
     def _onchange_amount_type(self):
@@ -229,6 +229,7 @@ class AccountReconcileModelLine(models.Model):
     account_id = fields.Many2one('account.account', string='Account', ondelete='cascade', required=True,
                                  domain=[('deprecated', '=', False)])
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account', ondelete='set null')
+    analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags')
     amount = fields.Monetary(string='Amount')
     amount_percentage = fields.Float(string='Amount(%)', digits=0)
 
