@@ -1,9 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_dialog_history,access_dialog_history,model_dialog_history,base.group_user,1,1,1,1
-access_dialog_intent,access_dialog_intent,model_dialog_intent,base.group_user,1,1,1,1
-access_dialog_entity_type,access_dialog_entity_type,model_dialog_entity_type,base.group_user,1,1,1,1
-access_dialog_entity,access_dialog_entity,model_dialog_entity,base.group_user,1,1,1,1
-access_intent_parameter,access_intent_parameter,model_intent_parameter,base.group_user,1,1,1,1
-access_intent_training_phrase,access_intent_training_phrase,model_intent_training_phrase,base.group_user,1,1,1,1
-access_intent_response,access_intent_response,model_intent_response,base.group_user,1,1,1,1
-access_intent_training_part,access_intent_training_part,model_intent_training_part,base.group_user,1,1,1,1
