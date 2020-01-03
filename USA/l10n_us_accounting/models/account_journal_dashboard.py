@@ -269,6 +269,7 @@ class AccountJournalUSA(models.Model):
                 if bank_rule.amount_type == 'fixed':
                     line_ids = ([0, '', {'amount': line_id.amount, 'account_id': line_id.account_id.id,
                                          'analytic_account_id': line_id.analytic_account_id.id,
+                                         'analytic_tag_ids': [(6, 0, line_id.analytic_tag_ids.ids)],
                                          'currency_id': line_id.currency_id.id}] for line_id in bank_rule.line_ids)
                     update_values['line_ids'] = line_ids
                     bank_rule_apply_tracking.append('line_ids')
@@ -276,13 +277,15 @@ class AccountJournalUSA(models.Model):
                     for mapping in mapping_result:
                         line_ids = ([0, '', {'amount': mapping.amount_unsigned * line_id.amount_percentage / 100.0,
                                              'analytic_account_id': line_id.analytic_account_id.id,
+                                             'analytic_tag_ids': [(6, 0, line_id.analytic_tag_ids.ids)],
                                              'account_id': line_id.account_id.id, 'currency_id': line_id.currency_id.id}]
                                     for line_id in bank_rule.line_ids)
                         mapping.write({'line_ids': line_ids})
             else:
                 update_values.update({'account_id': bank_rule.account_id.id,
-                                      'analytic_account_id': bank_rule.analytic_account_id.id})
-                bank_rule_apply_tracking.extend(['account_id', 'analytic_account_id'])
+                                      'analytic_account_id': bank_rule.analytic_account_id.id,
+                                      'analytic_tag_ids': [(6, 0, bank_rule.analytic_tag_ids.ids)]})
+                bank_rule_apply_tracking.extend(['account_id', 'analytic_account_id', 'analytic_tag_ids'])
 
         update_values['bank_rule_apply_tracking'] = ','.join(bank_rule_apply_tracking)
         mapping_result.write(update_values)
