@@ -1,0 +1,32 @@
+[options]
+max_cron_threads = {{ config['MAX_CRON_THREADS'] | default(1, true) }}
+proxy_mode = True
+addons_path = /opt/odoo/enterprise,/opt/odoo/odoo/addons,/opt/odoo/session-store,/opt/odoo/customized_addons
+data_dir = /var/lib/odoo/
+without_demo=all
+
+workers = {{ config['WORKERS'] | default(2, true) }}
+limit_time_cpu = 72000
+limit_time_real = 72000
+
+admin_passwd = {{ config['ADMIN_PASS'] | default("W$vH8x:rXWD>.+5(", true) }}
+db_maxconn = {{ config['DB_MAX_CONN'] | default(48, true) }}
+db_host = {{ config['db_info']['Host'] | default("", true) }}
+db_port = 5432
+db_user = {{ config['db_info']['User'] | default("", true) }}
+db_password = {{ config['db_info']['Password'] | default("", true) }}
+
+{% if config['DB_FILTER'] is defined %}
+dbfilter = {{ config['DB_FILTER'] | default('', true) }}
+{% endif %}
+
+
+{% if config['Redis_Host'] is defined %}
+enable_redis = True
+redis_host = {{ config['Redis_Host'] | default('', true) }}
+redis_port = 6379
+redis_dbindex = 0
+redis_session_prefix = us-accounting.qa.novobi.com-
+{% endif %}
+
+server_wide_modules={{ config['SERVER_WIDE_MODULES'] | default("web,base,smile_redis_session_store", true) }}
