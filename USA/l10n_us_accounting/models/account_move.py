@@ -79,12 +79,13 @@ class AccountMoveUSA(models.Model):
                     move.name = new_name
 
             journal_name = move.journal_id.name
-            if journal_name not in tracking:
-                # Enable trigger to run finding possible match
-                self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-                self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-
-                tracking.add(journal_name)
+            tracking = move._trigger_apply_matching_journal(journal_name, tracking)
+            # if journal_name not in tracking:
+            #     # Enable trigger to run finding possible match
+            #     self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
+            #     self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+            #
+            #     tracking.add(journal_name)
 
             if move == move.company_id.account_opening_move_id and not move.company_id.account_bank_reconciliation_start:
                 # For opening moves, we set the reconciliation date threshold
@@ -108,8 +109,9 @@ class AccountMoveUSA(models.Model):
         for record in self:
             journal_name = record._get_journal_name()
             # Enable trigger to run finding possible match
-            self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+            record._trigger_apply_matching_journal(journal_name)
+            # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
+            # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
 
         # uncheck aml when cancel
         self.mapped('line_ids').write({'temporary_reconciled': False})
@@ -136,12 +138,13 @@ class AccountMoveUSA(models.Model):
         tracking = set()
         for move in self:
             journal_name = move.journal_id.name
-            if journal_name not in tracking:
-                # Enable trigger to run finding possible match
-                self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-                self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-
-                tracking.add(journal_name)
+            tracking = move._trigger_apply_matching_journal(journal_name, tracking)
+            # if journal_name not in tracking:
+            #     # Enable trigger to run finding possible match
+            #     self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
+            #     self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+            #
+            #     tracking.add(journal_name)
 
         return result
 
@@ -171,9 +174,9 @@ class AccountMoveLineUSA(models.Model):
     _name = 'account.move.line'
     _inherit = ['account.move.line', 'account.caching.mixin.usa']
 
-    temporary_reconciled = fields.Boolean()
-    bank_reconciled = fields.Boolean()
-    is_fund_line = fields.Boolean()
+    temporary_reconciled = fields.Boolean(copy=False)
+    bank_reconciled = fields.Boolean(copy=False)
+    is_fund_line = fields.Boolean(copy=False)
 
     @api.multi
     def update_temporary_reconciled(self, ids, checked):
@@ -196,8 +199,9 @@ class AccountMoveLineUSA(models.Model):
         result = super(AccountMoveLineUSA, self).create(values)
 
         journal_name = result.journal_id.name
-        self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-        self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+        result._trigger_apply_matching_journal(journal_name)
+        # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
+        # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
 
         return result
 
@@ -209,13 +213,14 @@ class AccountMoveLineUSA(models.Model):
         tracking = set()
         for record in self:
             journal_name = record.journal_id.name
-            if journal_name in tracking:
-                continue
-
-            self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-
-            tracking.add(journal_name)
+            tracking = record._trigger_apply_matching_journal(journal_name, tracking)
+            # if journal_name in tracking:
+            #     continue
+            #
+            # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
+            # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+            #
+            # tracking.add(journal_name)
 
         result = super(AccountMoveLineUSA, self).unlink()
 

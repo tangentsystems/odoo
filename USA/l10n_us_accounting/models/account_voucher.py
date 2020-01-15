@@ -8,7 +8,7 @@ class AccountVoucherUSA(models.Model):
     _inherit = ['account.voucher', 'account.caching.mixin.usa']
 
     pay_now = fields.Selection(default='pay_now')
-    payment_id = fields.Many2one('account.payment', 'Linked Payment')
+    payment_id = fields.Many2one('account.payment', 'Linked Payment', copy=False)
 
     @api.multi
     def proforma_voucher(self):

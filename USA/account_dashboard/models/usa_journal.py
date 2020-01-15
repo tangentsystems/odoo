@@ -10,8 +10,11 @@ from ..utils.graph_utils import get_json_render, get_json_data_for_selection, pu
     push_to_list_values_to_sales
 from odoo import api, fields, models, _
 from odoo.osv import expression
+from odoo.tools import float_is_zero
 
 from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 
 from ..utils.time_utils import get_list_period_by_type, \
     BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, BY_FISCAL_YEAR, \
@@ -25,6 +28,9 @@ COLOR_SALE_PAST = "#2a78e4"
 COLOR_SALE_FUTURE = "#489e26"
 COLOR_CASH_OUT = "#f1c232"
 COLOR_CASH_IN = "#00ffff"
+COLOR_PROJECTED_CASH_IN = "#2b78e4"
+COLOR_PROJECTED_CASH_OUT = "#cf2a27"
+COLOR_PROJECTED_BALANCE = "#489e26"
 COLOR_NET_CASH = "#2978e4"
 COLOR_BANK = "#009e0f"
 COLOR_BOOK = "#ff9900"
@@ -36,6 +42,7 @@ COLOR_PAID_BILLS = "#6fa8dc"
 PROFIT_LOT = 'profit_and_loss'
 SALES = 'sales'
 CASH = 'cash'
+CASH_FORECAST = 'cash_forecast'
 BANK = 'bank'
 CUSTOMER_INVOICE = 'sale'
 VENDOR_BILLS = 'purchase'
@@ -76,6 +83,7 @@ class USAJournal(models.Model):
         (PROFIT_LOT, _('Profit and Loss')),
         (SALES, _('Sales')),
         (CASH, _('Cash')),
+        (CASH_FORECAST, _('Cashflow Forecast'))
     ]
 
     code = fields.Char(string='Code', required=True)
@@ -90,6 +98,9 @@ class USAJournal(models.Model):
     company_id = fields.Many2one('res.company', string='Company', required=True, index=True,
                                  default=lambda self: self.env.user.company_id,
                                  help="Company related to this journal")
+    currency_id = fields.Many2one('res.currency', related='company_id.currency_id')
+    recurring_cashin = fields.Monetary('Recurring Cash in', default=0)
+    recurring_cashout = fields.Monetary('Recurring Cash out', default=0)
 
     @api.one
     @api.depends()
@@ -119,6 +130,12 @@ class USAJournal(models.Model):
             extend_mode, graph_data = self.get_general_kanban_section_data()
             function_retrieve = 'retrieve_cash'
             get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
+
+        if self.type == CASH_FORECAST:
+            type_data = "multi_chart"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_cash_forecast'
+            # get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
 
         if self.type == BANK:
             type_data = "horizontal_bar"
@@ -406,6 +423,17 @@ class USAJournal(models.Model):
                 'tag': 'manual_reconciliation_view',
                 'context': action_context,
             }
+
+    @api.multi
+    def action_recurring_amount(self):
+        self.ensure_one()
+        action = self.env.ref('account_dashboard.usa_journal_recurring_payment_view_action').read()[0]
+        action['res_id'] = self.id
+        return action
+
+    @api.multi
+    def button_save_recurring(self):
+        return True
 
     ########################################################
     # INITIAL DATA
@@ -756,6 +784,162 @@ class USAJournal(models.Model):
         }, {
             'name': _('Net cash'),
             'summarize': format_currency(self, sum_cash_in + sum_cash_out)
+        }]
+        return {'graph_data': graph_data, 'info_data': info_data}
+
+    @api.model
+    def retrieve_cash_forecast(self, date_from, date_to, period_type):
+        company_ids = get_list_companies_child(self.env.user.company_id)
+        receivable_account_id = self.env.ref('account.data_account_type_receivable').id
+        payable_account_id = self.env.ref('account.data_account_type_payable').id
+        liquidity_account_id = self.env.ref('account.data_account_type_liquidity').id
+        forecast_dashboard = self.search([('type', '=', CASH_FORECAST)], limit=1)
+
+        date_from = datetime.now().replace(day=1)
+        this_year = date_from.year
+        period_type = 'month'
+        start_date, date_to = get_start_end_date_value(self, date_from + relativedelta(months=6), period_type)
+        periods = get_list_period_by_type(self, date_from, date_to, period_type)
+        data_dict = {}
+
+        def _update_data_dict(data_dict, data_query, side='receivable'):
+            for data in data_query:
+                year = int(data['year'])
+                period = int(data['period'])
+                # key = int("{}{}".format(year, period))
+                key = (year - this_year) * 20 + period
+                if key not in data_dict:
+                    data_dict[key] = {
+                        'period': period,
+                        'year': year
+                    }
+                data_dict[key][side] = data['amount']
+            return data_dict
+
+        def _get_bank_balance(date, account_type, company_ids):
+            query = """SELECT COALESCE(SUM(aml.balance), 0) as balance
+                        FROM account_move_line as aml
+                        INNER JOIN account_move as am
+                            ON aml.move_id = am.id
+                        INNER JOIN account_account as aa
+                            ON aml.account_id = aa.id
+                        WHERE aml.date <= %s AND
+                              am.state = 'posted' AND
+                              aa.user_type_id = %s AND 
+                              aml.company_id IN %s;"""
+            self.env.cr.execute(query, (date, account_type, tuple(company_ids)))
+            return self.env.cr.dictfetchall()
+
+        def _get_account_balance(where, period_type, date_from, date_to, reconcile_acc_id,
+                                 liquidity_account_id, company_ids):
+            query = """SELECT date_part('year', aml.date_maturity) as year,
+                              date_part(%s, aml.date_maturity) AS period,
+                              COALESCE(SUM(aml.amount_residual), 0) as amount
+                        FROM account_move_line as aml
+                            INNER JOIN account_move as am
+                                ON aml.move_id = am.id
+                            INNER JOIN account_account as aa
+                                ON aml.account_id = aa.id
+                        WHERE aml.date_maturity >= %s AND 
+                              aml.date_maturity <= %s AND
+                              am.state = 'posted' AND
+                              aml.company_id IN %s AND
+                              (aa.user_type_id = %s OR
+                              (aa.user_type_id = %s AND {}))
+                        GROUP BY year, period
+                        ORDER BY year, period;"""
+
+            self.env.cr.execute(query.format(where),
+                                (period_type, date_from, date_to,  tuple(company_ids), reconcile_acc_id, liquidity_account_id))
+            return self.env.cr.dictfetchall()
+
+        # Projected Cash in = Balance of Receivable + Debit of Bank (Payment + Receipt)
+        data_receivable = _get_account_balance('aml.debit > 0', period_type,
+                                               date_from, date_to,
+                                               receivable_account_id, liquidity_account_id, company_ids)
+        data_dict = _update_data_dict(data_dict, data_receivable, 'receivable')
+
+        # Projected Cash out = Balance of Payable (Bill) + Credit of Bank (Payment + Receipt)
+        data_payable = _get_account_balance('aml.credit > 0', period_type,
+                                            date_from, date_to,
+                                            payable_account_id, liquidity_account_id, company_ids)
+        data_dict = _update_data_dict(data_dict, data_payable, 'payable')
+
+        # Opening Balance
+        open_balance_date = date_from - relativedelta(days=1)
+        opening_balance = balance = _get_bank_balance(open_balance_date,
+                                                      liquidity_account_id, company_ids)[0]['balance']
+        index_period = 0
+        cash_in = []
+        cash_out = []
+        net_cash = []
+        cash_data = [cash_in, cash_out, net_cash]
+        recurring_cashin = forecast_dashboard.recurring_cashin
+        recurring_cashout = forecast_dashboard.recurring_cashout \
+            if float_is_zero(forecast_dashboard.recurring_cashout, precision_digits=2) \
+            else forecast_dashboard.recurring_cashout * -1
+        for key in sorted(data_dict):
+            data = data_dict[key]
+            receivable = data.get('receivable', 0) + recurring_cashin
+            payable = data.get('payable', 0) + recurring_cashout
+            while not (periods[index_period][0].month <= data['period'] <= periods[index_period][1].month) and \
+                    index_period < len(periods):
+                balance += recurring_cashin + recurring_cashout
+                push_to_list_lists_at_timestamp(cash_data, [recurring_cashin, recurring_cashout, balance],
+                                                periods[index_period], period_type)
+                index_period += 1
+            if index_period < len(periods):
+                balance += receivable + payable
+                push_to_list_lists_at_timestamp(cash_data,
+                                                [
+                                                    receivable,
+                                                    payable,
+                                                    balance,
+                                                ],
+                                                periods[index_period], period_type)
+                index_period += 1
+
+        while index_period < len(periods):
+            balance += recurring_cashin + recurring_cashout
+            push_to_list_lists_at_timestamp(cash_data, [recurring_cashin, recurring_cashout, balance],
+                                            periods[index_period], period_type)
+            index_period += 1
+
+        # Create chart data
+        graph_data = [{
+            'key': _('Projected Cash in'),
+            'values': cash_in,
+            'color': COLOR_PROJECTED_CASH_IN,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Projected Cash out'),
+            'values': cash_out,
+            'color': COLOR_PROJECTED_CASH_OUT,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Balance Carried Forward'),
+            'values': net_cash,
+            'color': COLOR_PROJECTED_BALANCE,
+            'type': 'line',
+            'yAxis': 1
+        }]
+
+        # Create info to show in head of chart
+        sum_cash_in = sum(item['y'] for item in cash_in)
+        sum_cash_out = sum(item['y'] for item in cash_out)
+        info_data = [{
+            'name': _('Total Projected Cash in'),
+            'title': _('This is total projected cash-in in the next 6 months'),
+            'summarize': format_currency(self, sum_cash_in)
+        }, {
+            'name': _('Total Projected Cash out'),
+            'title': _('This is total projected cash-out in the next 6 months'),
+            'summarize': format_currency(self, sum_cash_out)
+        }, {
+            'name': _('Balance of Bank & Cash as of {}'.format(open_balance_date.strftime(DEFAULT_SERVER_DATE_FORMAT))),
+            'summarize': format_currency(self, opening_balance)
         }]
         return {'graph_data': graph_data, 'info_data': info_data}
 

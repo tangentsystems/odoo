@@ -28,13 +28,19 @@
             </t>
 
             <div class="row">
-                <div class="col-5 o_kanban_primary_left">
-                </div>
-                <div class="col-7 o_kanban_primary_right">
-                    <div class="info-view"/>
-                </div>
+                <t t-if="data.function_retrieve != 'retrieve_cash_forecast'">
+                    <div class="col-5 o_kanban_primary_left">
+                    </div>
+                    <div class="col-7 o_kanban_primary_right">
+                        <div class="info-view"/>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="col-12 o_kanban_primary_right">
+                        <div class="info-view"/>
+                    </div>
+                </t>
             </div>
-
             <div class="content_kanban_view"/>
         </div>
     </t>
@@ -44,7 +50,7 @@
             <div class="row">
                 <div class="col-7">
                     <a type="object" name="open_action" context="{'search_default_draft': '1'}">
-                        <span t-attf-title="#{line.name}">
+                        <span t-attf-title="#{line.title ? line.title : line.name}">
                             <t t-esc="line.name"/></span>
                     </a>
                 </div>
