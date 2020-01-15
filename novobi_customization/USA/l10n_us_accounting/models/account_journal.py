@@ -11,7 +11,7 @@ class AccountJournalUSA(models.Model):
 
     is_credit_card = fields.Boolean(string='Credit Card')
 
-    partner_id = fields.Many2one('res.partner', string='Vendor',
+    partner_id = fields.Many2one('res.partner', string='Vendor (Bank Name)',
                                 help='This contact will be used to record vendor bill and payment '
                                      'for credit card balance.',
                                 copy=False)

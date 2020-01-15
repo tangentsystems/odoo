@@ -21,7 +21,7 @@
                                 <t t-if="type == 'sale' || type == 'purchase'" t-call="JournalBodySalePurchase"/>
 
                                 <t t-if="type == 'profit_and_loss' || type == 'sales' || type == 'bank' ||
-                                type == 'cash' || type == 'sale' || type == 'purchase'"
+                                type == 'cash_forecast' || type == 'cash' || type == 'sale' || type == 'purchase'"
                                    t-call="JournalGraph"/>
                                 <t t-if="type == 'bank'" t-call="JournalBank"/>
                                 <t t-if="type == 'profit_and_loss' || type == 'sales' ||
@@ -59,6 +59,17 @@
                     </t>
 
                     <t t-name="JournalGraph">
+                        <t t-if="type == 'cash_forecast'">
+                            <div class="row">
+                                <div class="col-12">
+                                    <button type="object"  name="action_recurring_amount"
+                                        class="btn btn-primary pull-right">
+                                        <span>Update Recurring Monthly Amount</span>
+                                     </button>
+                                </div>
+                            </div>
+                        </t>
+
                         <field name="account_dashboard_graph_dashboard_graph"
                                widget="journal_data"/>
                     </t>
@@ -234,4 +245,38 @@
           parent="account.account_reports_management_menu"
           sequence="0"
           groups="account.group_account_user"/>
+
+     <!--Recurring Wizard-->
+    <record id="usa_journal_recurring_payment_view" model="ir.ui.view">
+        <field name="name">usa_journal_recurring_payment_view</field>
+        <field name="model">usa.journal</field>
+        <field name="priority" eval="200"/>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <p class="o_group_col_12 text-muted">
+                        This is monthly cash in or cash out that you use Customer Receipts or Vendor Receipts to record the payment. For example: Utilities, Telephone, Internet, cash sales, etc.
+                    </p>
+                    <group>
+                        <field name="currency_id" invisible="1"/>
+
+                        <field name="recurring_cashin"/>
+                        <field name="recurring_cashout"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="button_save_recurring" string="Save" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="usa_journal_recurring_payment_view_action" model="ir.actions.act_window">
+        <field name="name">Update Recurring Monthly Amount</field>
+        <field name="res_model">usa.journal</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="usa_journal_recurring_payment_view"/>
+        <field name="target">new</field>
+    </record>
 </odoo>

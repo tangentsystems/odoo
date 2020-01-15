@@ -173,6 +173,9 @@
                         <field name="beginning_balance" required="1"
                                attrs="{'readonly': [('previous_reconciliation_id', '!=', False)]}"/>
                         <field name="ending_balance" required="1"/>
+                        <div colspan="2">
+                            <p>Notes: Input a negative ending balance if there is a statement balance that you have to pay for.</p>
+                        </div>
                     </group>
                     <group>
                         <field name="statement_beginning_date" string="Last Statement Ending Date"

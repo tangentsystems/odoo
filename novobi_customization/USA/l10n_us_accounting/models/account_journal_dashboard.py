@@ -451,7 +451,6 @@ class AccountJournalUSA(models.Model):
         return processed_bank_statement_line
 
     def _matching_with_journal_item(self, mapping_ids, processed_bank_statement_line):
-
         # Find all bank statement line in open status
         bank_statement_line_result = self.env[ACCOUNT_BANK_STATEMENT_LINE].search([
             ('status', '=', 'open'),
@@ -468,6 +467,10 @@ class AccountJournalUSA(models.Model):
         filter_payment_domain = ['|', ('payment_id', '=', None),
                                  '&', ('payment_id', '!=', None), ('payment_id.batch_payment_id', '=', False)]
 
+        # Search applied aml, these should NOT be considered as matched items
+        self.env.cr.execute("SELECT account_move_line_id from applied_aml_bsl_table;")
+        applied_aml_ids = [r[0] for r in self.env.cr.fetchall()]
+
         for bank_statement_line in bank_statement_line_result:
             domain = [
                 ('statement_line_id', '=', False),
@@ -475,6 +478,7 @@ class AccountJournalUSA(models.Model):
                 ('bank_reconciled', '=', False),
                 ('move_id.state', '=', 'posted'),
                 ('date', '<=', bank_statement_line.date),
+                ('id', 'not in', applied_aml_ids),
             ]
             if bank_statement_line.amount < 0:  # send
                 domain.extend([

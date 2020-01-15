@@ -794,6 +794,11 @@ class AccountBankStatementLineUSA(models.Model):
     def _get_ignore_list(self):
         batch_deposit_id_ignore = journal_entry_id_ignore = []
 
+        # Search applied aml, these should NOT be considered as matched items
+        self.env.cr.execute("SELECT account_move_line_id from applied_aml_bsl_table;")
+        applied_aml_ids = [r[0] for r in self.env.cr.fetchall()]
+        journal_entry_id_ignore.extend(applied_aml_ids)
+
         for mapping in self.mapping_transaction_ids:
             if mapping.batch_deposit_id:
                 batch_deposit_id_ignore.append(mapping.batch_deposit_id.id)
