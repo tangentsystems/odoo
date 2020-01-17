@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="template_followup_deposit_report" inherit_id="account_reports.template_followup_report">
         <xpath expr="//table/.." position="after">

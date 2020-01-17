@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 {
     'name': 'ChatBot',
     'version': '12.0.1.0.0',
+    'license': 'OPL-1',
     'category': 'Discuss',
     'summary': 'Add Smart OdooBot in discussions',
     'author': 'Novobi',

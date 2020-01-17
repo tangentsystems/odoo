@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="chatbot.view_confirm_message" model="ir.ui.view">
         <field name="name">chatbot.confirm.message.wizard.form</field>

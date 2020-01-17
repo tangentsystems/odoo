@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 from . import account_invoice_refund
 from . import account_invoice_partial_payment

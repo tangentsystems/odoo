@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 {
     'name': 'Account - SMS',
     'summary': '',
@@ -6,6 +7,7 @@
     'website': 'https://novobi.com',
     'category': 'Accounting',
     'version': '1.0',
+    'license': 'OPL-1',
     'depends': [
         'dashboard_alert'
     ],

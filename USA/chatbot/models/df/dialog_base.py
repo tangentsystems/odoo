@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 import dialogflow_v2beta1 as dialogflow
 from dialogflow_v2beta1.proto import intent_pb2
