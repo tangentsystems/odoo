@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 import json
 from odoo import api, fields, models, _
 from odoo.tools import float_is_zero

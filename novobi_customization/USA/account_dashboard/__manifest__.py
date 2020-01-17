@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 {
     'name': "Account Dashboard",
 
@@ -15,7 +16,7 @@
     # for the full list
     'category': 'Accounting',
     'version': '1.0',
-
+    'license': 'OPL-1',
     # any module necessary for this one to work correctly
     'depends': [
         'l10n_us_accounting'

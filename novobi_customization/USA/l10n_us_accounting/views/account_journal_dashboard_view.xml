@@ -99,7 +99,11 @@
             </xpath>
 
             <!--Change Reconciliation Action-->
-            <xpath expr="//t[@t-name='JournalBodyBankCash']/div/t[@t-if='dashboard.number_to_reconcile > 0']/button" position="replace">
+            <!--Hide Odoo Reconcile btn-->
+             <xpath expr="//t[@t-name='JournalBodyBankCash']/div/t[@t-if='dashboard.number_to_reconcile > 0']/button" position="attributes">
+                <attribute name="style">display: none</attribute>
+            </xpath>
+            <xpath expr="//t[@t-name='JournalBodyBankCash']/div/t[@t-if='dashboard.number_to_reconcile > 0']" position="after">
                 <button type="object" name="open_action_reconciliation"
                         context="{'action_name': 'action_for_review_usa'}" class="btn btn-primary">
                     <t t-esc="dashboard.number_for_reviews"/> Items For Review

@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 class Command(object):
 	def __init__(self):

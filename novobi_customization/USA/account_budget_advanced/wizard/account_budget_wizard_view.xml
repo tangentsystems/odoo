@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--Default Wizard-->
     <record id="account_budget_wizard_form_view" model="ir.ui.view">

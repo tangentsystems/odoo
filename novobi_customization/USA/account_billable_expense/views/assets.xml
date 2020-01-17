@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
 	<template id="template" name="billable_expense_template" inherit_id="web.assets_backend">
 		<xpath expr="script[last()]" position="after">
