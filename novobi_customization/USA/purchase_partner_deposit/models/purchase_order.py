@@ -15,11 +15,12 @@ class PurchaseOrder(models.Model):
     @api.depends('amount_total', 'deposit_ids', 'deposit_ids.state')
     def _get_deposit_total(self):
         for order in self:
-            deposit_total = sum(deposit.amount for deposit in order.deposit_ids)
+            deposit_ids = order.sudo().deposit_ids
+            deposit_total = sum(deposit.amount for deposit in deposit_ids)
 
             order.update({
                 'deposit_total': deposit_total,
-                'deposit_count': len(order.deposit_ids),
+                'deposit_count': len(deposit_ids),
                 'remaining_total': order.amount_total - deposit_total,
             })
 
