@@ -7,11 +7,13 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_quotation_send']" position="before">
                 <button name="%(account_partner_deposit.action_view_deposit_order_form)d" string="Create deposit" type="action"
-                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', '!=', 'sale')]}"/>
+                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', '!=', 'sale')]}"
+                        groups="account.group_account_user"/>
             </xpath>
 
             <div name="button_box" position="inside">
                 <button name="action_view_deposit" type="object" class="oe_stat_button" icon="fa-money"
+                        groups="account.group_account_user"
                         attrs="{'invisible': [('deposit_count', '=', 0)]}">
                     <field name="deposit_count" widget="statinfo" string="Deposits"/>
                 </button>
