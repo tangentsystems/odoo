@@ -618,7 +618,7 @@ class USAJournal(models.Model):
                                          LIMIT 1), 1.0) AS rate
                         FROM res_currency c"""
 
-        transferred_currency = """select ai.date_invoice, c.rate * ai.amount_untaxed as amount_tran, state, company_id
+        transferred_currency = """select ai.date_invoice, ai.type, c.rate * ai.amount_untaxed as amount_tran, state, company_id
                                   from account_invoice as ai
                                          left join ({currency_table}) as c
                                            on ai.currency_id = c.id""".format(currency_table=currency, )
@@ -631,6 +631,7 @@ class USAJournal(models.Model):
                     WHERE date_invoice >= %s AND
                           date_invoice <= %s AND
                           aic.state NOT IN ('draft',  'cancel') AND
+                          aic.type = 'out_invoice' AND
                           aic.company_id IN %s
                     GROUP BY year, period
                     ORDER BY year, period;""".format(transferred_currency_table=transferred_currency, )
