@@ -213,9 +213,12 @@ class AccountReconcileModelUSA(models.Model):
     @api.model
     def update_bank_rule_type(self):
         # Delete Invoices Matching Rule
-        invoice_rule = self.env.ref('account.reconciliation_model_default_rule')
-        if invoice_rule:
-            invoice_rule.unlink()
+        try:
+            invoice_rule = self.env.ref('account.reconciliation_model_default_rule')
+            if invoice_rule:
+                invoice_rule.unlink()
+        except:
+            pass
 
         # Change bank rule type
         records = self.sudo().search([])

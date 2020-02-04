@@ -19,7 +19,7 @@
 
         <record id="account_payment_method_electronic_out" model="account.payment.method">
             <field name="name">Credit Card</field>
-            <field name="code">electronic</field>
+            <field name="code">manual</field>
             <field name="payment_type">outbound</field>
         </record>
     </data>
