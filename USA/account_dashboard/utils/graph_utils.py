@@ -7,7 +7,7 @@ from .time_utils import BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, \
 
 def get_json_render(data_type, extend, data_render,
                     name_card, selection, function_retrieve,
-                    extra_param, extra_graph_setting={}):
+                    extra_param, currency_id, extra_graph_setting={}):
     return {
         'function_retrieve': function_retrieve,
         'data_type': data_type,
@@ -16,7 +16,8 @@ def get_json_render(data_type, extend, data_render,
         'name': name_card,
         'selection': selection,
         'extra_param': extra_param,
-        'extra_graph_setting': extra_graph_setting
+        'extra_graph_setting': extra_graph_setting,
+        'currency_id': currency_id,
     }
 
 def get_json_data_for_selection(self, selection, periods, default_selection):
