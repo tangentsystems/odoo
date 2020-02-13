@@ -156,6 +156,17 @@
     </record>
 
 
+    <!-- EXECUTIVE SUMMARY -->
+    <!--Net profit margin (net profit / income)-->
+    <record id="account_reports.account_financial_report_executivesummary_npmargin0" model="account.financial.html.report.line">
+        <field name="formulas">balance = NEP.balance / (OPINC.balance + OIN.balance)</field>
+    </record>
+
+    <record id="account_reports.account_financial_report_executivesummary_income0" model="account.financial.html.report.line">
+        <field name="formulas">balance = OPINC.balance + OIN.balance</field>
+    </record>
+
+
     <!--REGROUP SUBMENU-->
     <!--US GAAP-->
     <record model="ir.ui.menu" id="account.account_reports_legal_statements_menu">
