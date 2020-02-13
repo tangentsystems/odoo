@@ -2,7 +2,23 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
     // var JournalDashboardGraph = require("web.JournalDashboardGraph");
     var AbstractField = require('web.AbstractField');
     var core = require('web.core');
+    var field_utils = require('web.field_utils');
+    var session = require('web.session');
     var qweb = core.qweb;
+
+    var FORMAT_OPTIONS = {
+        // allow to decide if utils.human_number should be used
+        humanReadable: function (value) {
+            return Math.abs(value) >= 1000;
+        },
+        // with the choices below, 1236 is represented by 1.24k
+        minDigits: 1,
+        decimals: 2,
+        // avoid comma separators for thousands in numbers when human_number is used
+        formatterCallback: function (str) {
+            return str;
+        },
+    };
 
     var JournalData = AbstractField.extend({
         className: "o_journal",
@@ -23,6 +39,7 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
             this._super.apply(this, arguments);
             this.graph_type = this.attrs.graph_type;
             this.data = JSON.parse(this.value);
+            session.currency_id = this.data.currency_id;
         },
         start: function () {
             this._onResize = this._onResize.bind(this);
@@ -157,7 +174,7 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
                         self.chart.legend.updateState(false);
 
                         self.chart.yAxis
-                            .tickFormat(d3.format(self.currency_symbol+format_number_minimal));
+                            .tickFormat(self.format_currency);
                         self.chart.tooltip.valueFormatter(d3.format(self.currency_symbol+format_number));
 
                         self.chart.xAxis.tickFormat(function (d) {
@@ -210,11 +227,11 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
                             .showMaxMin(false);
 
                         self.chart.yAxis
-                            .tickFormat(d3.format(self.currency_symbol + format_number_minimal));
+                            .tickFormat(self.format_currency);
 
                         self.chart.tooltip.valueFormatter(d3.format(self.currency_symbol+format_number));
 
-                        self.chart.valueFormat(d3.format(self.currency_symbol + format_number_minimal));
+                        self.chart.valueFormat(self.format_currency);
 
                         break;
                     case 'bar':
@@ -248,7 +265,7 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
                         }).showMaxMin(false);
 
                         self.chart.yAxis
-                            .tickFormat(d3.format(self.currency_symbol+format_number_minimal));
+                            .tickFormat(self.format_currency);
                         self.chart.tooltip.valueFormatter(d3.format(self.currency_symbol+format_number));
                         self.chart.forceY([minY-deltaY*percentage_padding_chart, maxY+deltaY*percentage_padding_chart]);
                         break;
@@ -270,9 +287,9 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
                         }).showMaxMin(false);
 
                         self.chart.yAxis1
-                            .tickFormat(d3.format(self.currency_symbol+format_number_minimal));
+                            .tickFormat(self.format_currency);
                         self.chart.yAxis2
-                            .tickFormat(d3.format(self.currency_symbol+format_number_minimal));
+                            .tickFormat(self.format_currency);
                         self.chart.bars1.stacked(true);
                         self.chart.lines1.padData(true);
                         self.chart.useInteractiveGuideline(true);
@@ -370,6 +387,11 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
                             args: defaul_param.concat(data.extra_param)
                         }).then(function (result) {
                             var extra_graph_setting = result.extra_graph_setting === undefined? {}: result.extra_graph_setting
+
+                            if (extra_graph_setting && extra_graph_setting.normal_value) {
+                                session.currency_id = null;
+                            }
+
                             self._render_chart(self.$el.find('.content_kanban_view'), result.graph_data, data.data_type, extra_graph_setting);
                             self._render_info(self.$el.find('.info-view'), result.info_data);
                         });
@@ -421,6 +443,18 @@ odoo.define("account_dashboard.journal_data_item", function (require) {
             return return_value
         },
 
+        format_currency: function(amount){
+            var currency = session.get_currency(session.currency_id);
+            var formatted_value = field_utils.format.float(amount || 0, {digits: currency && currency.digits}, FORMAT_OPTIONS);
+            if (currency) {
+                if (currency.position === "after") {
+                    formatted_value += currency.symbol;
+                } else {
+                    formatted_value = currency.symbol + formatted_value;
+                }
+            }
+            return formatted_value;
+        },
     });
 
     var registry = require('web.field_registry');

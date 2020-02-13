@@ -160,7 +160,7 @@ class USAJournal(models.Model):
             self.account_dashboard_graph_dashboard_graph = json.dumps(
                 get_json_render(type_data, False,
                                 graph_data, self.type,
-                                selection, function_retrieve, extra_param))
+                                selection, function_retrieve, extra_param, self.currency_id.id))
             self.write({'extend_data': extend_mode})
 
     ########################################################

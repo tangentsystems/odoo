@@ -183,7 +183,7 @@
                 <search string="Search Invoice">
                     <!-- Search -->
                     <field name="number" string="Transaction"
-                           filter_domain="['|','|','|', '|', ('number','ilike',self), ('origin','ilike',self), ('reference', 'ilike', self), ('partner_id', 'child_of', self), ('amount_total_signed', '=', self)]"/>
+                           filter_domain="['|','|','|', ('number','ilike',self), ('origin','ilike',self), ('reference', 'ilike', self), ('partner_id', 'child_of', self)]"/>
                     <field name="ar_in_charge" string="AR In Charge"/>
                     <field name="journal_id" />
                     <field name="partner_id" operator="child_of"/>

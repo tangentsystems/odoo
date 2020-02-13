@@ -140,8 +140,7 @@ class BankReconciliationData(models.Model):
 
         # Create report
         self._create_report_line()
-        uncleared_amount = sum(record.amount for record in self.payments_uncleared_ids)
-        uncleared_amount += sum(record.amount for record in self.deposits_uncleared_ids)
+        uncleared_amount = sum(record.amount for record in self.deposits_uncleared_ids) - sum(record.amount for record in self.payments_uncleared_ids)
         register_balance = self.ending_balance + uncleared_amount
         payment_count = len(self.payments_cleared_ids)
         deposit_count = len(self.deposits_cleared_ids)
