@@ -14,6 +14,8 @@ from odoo.addons.account_dashboard.utils.time_utils import get_list_period_by_ty
 from odoo.addons.account_dashboard.utils.graph_utils import get_json_render, get_json_data_for_selection, \
     push_to_list_lists_at_timestamp, \
     push_to_list_values_to_sales
+import re
+from decimal import Decimal
 
 COLOR_EXP = '#cf2a27'
 COLOR_COS = '#489e26'
@@ -27,13 +29,15 @@ RETURN_ON_EQUITY = 'return_on_equity'
 DEBT_TO_EQUITY = 'debt_to_equity'
 AR_TURNOVER = 'ar_turnover'
 AP_TURNOVER = 'ap_turnover'
+OP_CASHFLOW = 'op_cashflow'
 
 USA_JOURNAL_TYPES = [
-    ('current_ratio', 'Current Ratio'),
-    ('return_on_equity', 'Return on Equity'),
-    ('debt_to_equity', 'Debt to Equity'),
-    ('ar_turnover', 'AR Turnover'),
-    ('ap_turnover', 'AP Turnover')
+    (CURRENT_RATIO, 'Current Ratio'),
+    (RETURN_ON_EQUITY, 'Return on Equity'),
+    (DEBT_TO_EQUITY, 'Debt to Equity'),
+    (AR_TURNOVER, 'AR Turnover'),
+    (AP_TURNOVER, 'AP Turnover'),
+    (OP_CASHFLOW, 'Operating Cash Flow')
 ]
 
 
@@ -44,33 +48,20 @@ class TangentUSAJournal(models.Model):
 
     @api.model
     def create_journal_data(self):
+        usa_journal = self.env['usa.journal']
+        types = [item[0] for item in USA_JOURNAL_TYPES]
+        dict_elem = dict(USA_JOURNAL_TYPES)
+
         for com in self.env['res.company'].search([]):
-            self.env['usa.journal'].create([{
-                'type': 'current_ratio',
-                'name': 'Current Ratio',
-                'code': 'CURRENT_RATIO',
-                'company_id': com.id
-            }, {
-                'type': 'return_on_equity',
-                'name': 'Return on Equity',
-                'code': 'RETURN_ON_EQUITY',
-                'company_id': com.id
-            }, {
-                'type': 'debt_to_equity',
-                'name': 'Debt to Equity',
-                'code': 'DEBT_TO_EQUITY',
-                'company_id': com.id
-            }, {
-                'type': 'ar_turnover',
-                'name': 'AR Turnover',
-                'code': 'AR_TURNOVER',
-                'company_id': com.id
-            }, {
-                'type': 'ap_turnover',
-                'name': 'AP Turnover',
-                'code': 'AP_TURNOVER',
-                'company_id': com.id
-            }])
+            for journal_type in types:
+                existing_journals = usa_journal.search([('type', '=', journal_type)])
+                if not existing_journals:
+                    usa_journal.create({
+                        'type': journal_type,
+                        'name': dict_elem[journal_type],
+                        'code': journal_type.upper(),
+                        'company_id': com.id
+                    })
 
     @api.one
     @api.depends()
@@ -114,6 +105,12 @@ class TangentUSAJournal(models.Model):
             function_retrieve = 'retrieve_ap_turnover'
             get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
 
+        if self.type == OP_CASHFLOW:
+            type_data = 'line'
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_op_cashflow'
+            get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
+
         if graph_data:
             self.account_dashboard_graph_dashboard_graph = json.dumps(
                 get_json_render(type_data, False,
@@ -139,6 +136,12 @@ class TangentUSAJournal(models.Model):
                     .action
                 action_name = action.xml_id
                 [action] = self.env.ref(action_name).read()
+
+            if self.type == OP_CASHFLOW:
+                action = self.env.ref('account_reports_cash_flow.action_account_report_cs')
+                action_name = action.xml_id
+                [action] = self.env.ref(action_name).read()
+
         else:
             action = super(TangentUSAJournal, self).open_action_label()
 
@@ -320,6 +323,52 @@ class TangentUSAJournal(models.Model):
             'extra_graph_setting': {
                 'normal_value': True
             }
+        }
+
+    @api.model
+    def retrieve_op_cashflow(self, date_from, date_to, period_type):
+        info_data = []
+        data_fetch = []
+        date_from = datetime.strptime(date_from, '%Y-%m-%d')
+        date_to = datetime.strptime(date_to, '%Y-%m-%d')
+        periods = get_list_period_by_type(self, date_from, date_to, period_type)
+
+        date = {
+            'date_from': date_from,
+            'date_to': date_to,
+            'filter': 'custom'
+        }
+        options = {
+            'date': date,
+            'unfolded_lines': []
+        }
+
+        cashflow_lines = self.env['account.cash.flow.report']._get_lines(options)
+        op_cashflow = list(filter(lambda e: e['id'] == 'cash_flow_line_2', cashflow_lines))[0]
+        info_data.append({
+            'name': 'Operating Cash Flow',
+            'summarize': op_cashflow['columns'][0]['name']
+        })
+
+        for period in periods:
+            options['date']['date_from'] = period[0]
+            options['date']['date_to'] = period[1]
+            cashflow_lines = self.env['account.cash.flow.report']._get_lines(options)
+            op_cashflow = list(filter(lambda e: e['id'] == 'cash_flow_line_2', cashflow_lines))[0]
+            value = Decimal(re.sub(r'[^\d.-]', '', op_cashflow['columns'][0]['name']))
+
+            data_fetch.append({
+                'year': date_from.year,
+                'date_in_period': period[0],
+                'value': value
+            })
+
+        graph_data = self._prepare_line_chart_data('Operating Cash Flow', data_fetch, periods, period_type)
+
+        return {
+            'graph_data': graph_data,
+            'info_data': info_data,
+            'extra_graph_setting': {}
         }
 
     @api.model
