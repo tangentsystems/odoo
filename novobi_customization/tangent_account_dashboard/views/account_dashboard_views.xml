@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="tangent_usa_journal_kanban_view" model="ir.ui.view">
+        <field name="name">tangent.usa.journal.kanban</field>
+        <field name="inherit_id" ref="account_dashboard.usa_journal_kanban_view" />
+        <field name="model">usa.journal</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('o_kanban_card_content')]" position="inside">
+                <t t-if="type == 'current_ratio' || type == 'return_on_equity' || type == 'debt_to_equity'
+                        || type == 'ar_turnover' || type == 'ap_turnover' || type == 'op_cashflow'">
+                    <t t-call="JournalGraph"/>
+                    <t t-call="JournalExtendButton"/>
+                </t>
+            </xpath>
+        </field>
+    </record>
+</odoo>

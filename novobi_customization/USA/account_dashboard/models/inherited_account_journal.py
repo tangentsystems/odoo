@@ -34,7 +34,7 @@ class AccountJournal(models.Model):
             self.kanban_dashboard_graph = json.dumps(
                 get_json_render(type_data, False,
                                 graph_data, self.type,
-                                selection, function_retrieve, extra_param))
+                                selection, function_retrieve, extra_param, self.currency_id.id))
         elif self.type in ['cash', 'bank']:
             type_data = "line"
             graph_data = self.get_line_graph_datas()
@@ -49,7 +49,7 @@ class AccountJournal(models.Model):
             # data_type, extend, data_render, name_card, selection, function_retrieve)
             self.kanban_dashboard_graph = json.dumps(get_json_render(type_data, False,
                                                                      graph_data, self.type,
-                                                                     selection, function_retrieve, extra_param))
+                                                                     selection, function_retrieve, extra_param, self.currency_id.id))
         return res
 
     @api.one
@@ -83,7 +83,7 @@ class AccountJournal(models.Model):
             }
             self.kanban_right_info_graph = json.dumps(get_json_render('horizontal_bar', False,
                                                                       graph_data, self.type,
-                                                                      selection, function_retrieve, extra_param,
+                                                                      selection, function_retrieve, extra_param, self.currency_id.id,
                                                                       extra_graph_setting))
         else:
             self.kanban_right_info_graph = ''

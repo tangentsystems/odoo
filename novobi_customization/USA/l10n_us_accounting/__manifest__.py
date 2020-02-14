@@ -35,6 +35,7 @@
         'data/vendor_1099_report_data.xml',
         'data/account_reconcile_model_data.xml',
         'data/account_bank_statement_data.xml',
+        'data/account_bank_reconciliation_data.xml',
 
         'wizard/account_invoice_refund_view.xml',
         'wizard/account_invoice_partial_payment_view.xml',
