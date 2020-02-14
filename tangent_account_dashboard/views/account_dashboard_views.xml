@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//div[hasclass('o_kanban_card_content')]" position="inside">
                 <t t-if="type == 'current_ratio' || type == 'return_on_equity' || type == 'debt_to_equity'
-                        || type == 'ar_turnover' || type == 'ap_turnover'">
+                        || type == 'ar_turnover' || type == 'ap_turnover' || type == 'op_cashflow'">
                     <t t-call="JournalGraph"/>
                     <t t-call="JournalExtendButton"/>
                 </t>

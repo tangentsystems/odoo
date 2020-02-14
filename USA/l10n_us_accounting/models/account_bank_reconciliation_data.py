@@ -8,6 +8,9 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo.tools.misc import formatLang
 from datetime import datetime
 from odoo.exceptions import Warning
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class BankReconciliationData(models.Model):
@@ -97,6 +100,17 @@ class BankReconciliationData(models.Model):
         action = self._get_reconciliation_screen(self.id)
         return action
 
+    @api.model
+    def update_bank_reconciliation_report(self):
+        _logger.info("Update Bank Recocniliation Reports")
+        reconciled_reports = self.sudo().search([('state', '=', 'reconciled')])
+        for report in reconciled_reports:
+            uncleared_amount = sum(record.amount for record in report.deposits_uncleared_ids) - sum(
+                record.amount for record in report.payments_uncleared_ids)
+            register_balance = report.ending_balance - uncleared_amount
+            report.write({'uncleared_amount': uncleared_amount,
+                          'register_balance': register_balance})
+
     ############################
     #  MAIN FUNCTIONS
     ############################
@@ -141,7 +155,7 @@ class BankReconciliationData(models.Model):
         # Create report
         self._create_report_line()
         uncleared_amount = sum(record.amount for record in self.deposits_uncleared_ids) - sum(record.amount for record in self.payments_uncleared_ids)
-        register_balance = self.ending_balance + uncleared_amount
+        register_balance = self.ending_balance - uncleared_amount
         payment_count = len(self.payments_cleared_ids)
         deposit_count = len(self.deposits_cleared_ids)
         self.write({'uncleared_amount': uncleared_amount,
