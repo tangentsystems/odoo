@@ -1,3 +1,19 @@
 .table_svg {
   margin-top: 20px;
 }
+
+.stacked-bar-chart-tooltip {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 10000;
+  display: block;
+  font-size: 13px;
+  text-align: left;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.stacked-bar-chart-tooltip-hidden {
+  display: none;
+}
