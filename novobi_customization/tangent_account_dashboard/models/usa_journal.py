@@ -591,7 +591,10 @@ class TangentUSAJournal(models.Model):
         })
 
         data.update({
-            'extra_graph_setting': {'stacked': True}
+            'extra_graph_setting': {
+                'stacked': True,
+                'stack_group_bar': True
+            }
         })
 
         return data
