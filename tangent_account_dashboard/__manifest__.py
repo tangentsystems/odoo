@@ -27,6 +27,7 @@
     'data': [
         'views/assets.xml',
         'views/account_dashboard_views.xml',
+        'views/search_template_view.xml',
         'data/tangent_journal_data.xml'
     ],
     'qweb': ['static/src/xml/*.xml'],
