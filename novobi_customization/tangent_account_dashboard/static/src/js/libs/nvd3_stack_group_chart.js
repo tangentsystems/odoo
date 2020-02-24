@@ -189,7 +189,7 @@ nv.models.GroupedStackedBarChart = function () {
                     return result;
                 })();
 
-            x0.domain(groupsLabel).rangeRoundBands([0, availableWidth], 0.015, 0.01);
+            x0.domain(groupsLabel).rangeRoundBands([0, availableWidth], 0.2, 0.01);
 
             x2.domain(d3.keys(stacksLabel)).rangeRoundBands([0, availableWidth], 0, 0);
             //get something
