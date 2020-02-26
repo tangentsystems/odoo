@@ -20,7 +20,7 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 
 COLOR_INC = '#489e26'  # Green
-COLOR_EXP = '#2b78e4'  # Blue
+COLOR_EXP = '#cf2a27'  # Magenta
 COLOR_COS = '#cf2a27'  # Magenta
 COLOR_DEP = '#fd7e14'
 COLOR_OEX = '#f7cd1f'  # Yellow
