@@ -7,5 +7,11 @@
             <a role="menuitem" class="dropdown-item js_account_report_date_filter" title="Last Week"
                data-filter="last_week">Last Week</a>
         </xpath>
+        <xpath expr='//div[hasclass("o_filters_menu")]/t[@t-if="options[&apos;date&apos;].get(&apos;date&apos;)"]'
+               position="inside">
+            <div role="separator" class="dropdown-divider"/>
+            <a role="menuitem" class="dropdown-item js_account_report_date_filter" title="End of Last Week"
+               data-filter="end_of_last_week">End of Last Week</a>
+        </xpath>
     </template>
 </odoo>
