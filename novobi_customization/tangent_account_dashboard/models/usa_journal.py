@@ -5,7 +5,8 @@ from odoo import api, fields, models, _
 import json
 import ast
 from odoo.osv import expression
-from datetime import datetime
+from datetime import datetime, date
+import calendar
 
 from odoo.addons.account_dashboard.utils.utils import get_list_companies_child, format_currency
 from odoo.addons.account_dashboard.utils.time_utils import get_list_period_by_type, \
@@ -16,11 +17,13 @@ from odoo.addons.account_dashboard.utils.graph_utils import get_json_render, get
     push_to_list_values_to_sales
 import re
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 
-COLOR_EXP = '#cf2a27'
-COLOR_COS = '#489e26'
+COLOR_INC = '#489e26'  # Green
+COLOR_EXP = '#8e7cc3'  # Purple
+COLOR_COS = '#cf2a27'  # Magenta
 COLOR_DEP = '#fd7e14'
-COLOR_OEX = '#00A09D'
+COLOR_OEX = '#f7cd1f'  # Yellow
 COLOR_RATIO_PAST = "#2a78e4"
 COLOR_RATIO_FUTURE = "#489e26"
 
@@ -117,6 +120,21 @@ class TangentUSAJournal(models.Model):
                                 graph_data, self.type,
                                 selection, function_retrieve, extra_param, self.currency_id.id))
             self.write({'extend_data': extend_mode})
+
+        today = date.today()
+        end_of_current_month_day = calendar.monthrange(today.year, today.month)[1]
+        end_of_current_month = date(today.year, today.month, end_of_current_month_day)
+        last_11_months = end_of_current_month - relativedelta(months=11)
+        start_of_last_12_months = date(last_11_months.year, last_11_months.month, 1)
+        dashboard_data = json.loads(self.account_dashboard_graph_dashboard_graph)
+        dashboard_data['selection'].append({
+            'n': 'Last 12 Months',
+            's': fields.Date.to_string(start_of_last_12_months),
+            'e': fields.Date.to_string(end_of_current_month),
+            'd': True,
+            'k': 'month'
+        })
+        self.account_dashboard_graph_dashboard_graph = json.dumps(dashboard_data)
 
     @api.multi
     def open_action_label(self):
@@ -543,6 +561,7 @@ class TangentUSAJournal(models.Model):
     def retrieve_profit_and_loss(self, date_from, date_to, period_type):
         data = super(TangentUSAJournal, self).retrieve_profit_and_loss(date_from, date_to, period_type)
         data['graph_data'].pop()
+        data['graph_data'][0]['color'] = COLOR_INC
 
         date_from = datetime.strptime(date_from, '%Y-%m-%d')
         date_to = datetime.strptime(date_to, '%Y-%m-%d')
@@ -591,7 +610,10 @@ class TangentUSAJournal(models.Model):
         })
 
         data.update({
-            'extra_graph_setting': {'stacked': True}
+            'extra_graph_setting': {
+                'stacked': True,
+                'stack_group_bar': True
+            }
         })
 
         return data

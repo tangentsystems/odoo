@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="tangent_search_template_date_filter" inherit_id="account_reports.search_template_date_filter">
+        <xpath expr='//div[hasclass("o_filters_menu")]/t[@t-if="options[&apos;date&apos;].get(&apos;date_from&apos;)"]'
+               position="inside">
+            <div role="separator" class="dropdown-divider"/>
+            <a role="menuitem" class="dropdown-item js_account_report_date_filter" title="Last Week"
+               data-filter="last_week">Last Week</a>
+        </xpath>
+        <xpath expr='//div[hasclass("o_filters_menu")]/t[@t-if="options[&apos;date&apos;].get(&apos;date&apos;)"]'
+               position="inside">
+            <div role="separator" class="dropdown-divider"/>
+            <a role="menuitem" class="dropdown-item js_account_report_date_filter" title="End of Last Week"
+               data-filter="end_of_last_week">End of Last Week</a>
+        </xpath>
+    </template>
+</odoo>
