@@ -20,7 +20,7 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 
 COLOR_INC = '#489e26'  # Green
-COLOR_EXP = '#cf2a27'  # Magenta
+COLOR_EXP = '#8e7cc3'  # Purple
 COLOR_COS = '#cf2a27'  # Magenta
 COLOR_DEP = '#fd7e14'
 COLOR_OEX = '#f7cd1f'  # Yellow
@@ -131,7 +131,7 @@ class TangentUSAJournal(models.Model):
             'n': 'Last 12 Months',
             's': fields.Date.to_string(start_of_last_12_months),
             'e': fields.Date.to_string(end_of_current_month),
-            'd': False,
+            'd': True,
             'k': 'month'
         })
         self.account_dashboard_graph_dashboard_graph = json.dumps(dashboard_data)

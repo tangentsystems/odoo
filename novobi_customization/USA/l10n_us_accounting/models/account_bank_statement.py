@@ -142,7 +142,13 @@ class AccountBankStatementLineUSA(models.Model):
     @api.depends('mapping_transaction_ids')
     def _compute_possible_match(self):
         for record in self:
-            record.possible_match = record.mapping_transaction_ids and record.mapping_transaction_ids[0].name or ''
+            name = ""
+            if record.mapping_transaction_ids:
+                transaction = record.mapping_transaction_ids[0]
+                name = transaction.name
+                if transaction.partner_id:
+                    name += " - {}".format(transaction.partner_id.name)
+            record.possible_match = name
 
     @api.multi
     @api.depends('amount_unsigned', 'payment', 'total_split_amount',
