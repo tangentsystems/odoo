@@ -13,8 +13,12 @@ class BillableExpenses(models.Model):
     bill_id = fields.Many2one('account.invoice')
     bill_line_id = fields.Many2one('account.invoice.line')  # expense created from a bill line
     description = fields.Text('Description')
-    amount = fields.Monetary('Amount')
     bill_date = fields.Date('Date')
+
+    amount = fields.Monetary('Amount')
+    amount_markup = fields.Monetary('Markup (Amount)', default=0)
+    amount_markup_percentage = fields.Float('Markup (%)', default=0)
+    amount_total = fields.Monetary('Total Amount', compute='_compute_amount_total')
 
     currency_id = fields.Many2one('res.currency', compute='_compute_company_id', store=True, string='Expense Currency')
     company_id = fields.Many2one('res.company', compute='_compute_company_id', store=True)
@@ -30,6 +34,11 @@ class BillableExpenses(models.Model):
     # for report
     source_document = fields.Char('Source Document', compute='_compute_company_id', store=True)
     supplier_id = fields.Many2one('res.partner', 'Supplier', compute='_compute_company_id', store=True)
+
+    @api.depends('amount', 'amount_markup', 'amount_markup_percentage')
+    def _compute_amount_total(self):
+        for record in self:
+            record.amount_total = record.amount * (record.amount_markup_percentage + 100)/100 + record.amount_markup
 
     @api.depends('invoice_line_id', 'invoice_line_id.invoice_id.state')
     def _get_outstanding_state(self):
@@ -50,31 +59,41 @@ class BillableExpenses(models.Model):
                 record.currency_id = bill.currency_id
                 record.company_id = bill.company_id
 
-    @api.depends('amount', 'currency_id', 'invoice_currency_id')
+    @api.depends('amount_total', 'currency_id', 'invoice_currency_id')
     def _get_amount_currency(self):
         for record in self:
             if record.invoice_currency_id:
-                record.amount_currency = record.currency_id._convert(record.amount, record.invoice_currency_id,
+                record.amount_currency = record.currency_id._convert(record.amount_total, record.invoice_currency_id,
                                                                      record.company_id, fields.Date.today())
             else:
-                record.amount_currency = record.amount
+                record.amount_currency = record.amount_total
 
     def _get_log_msg(self, vals):
         current_customer = self.customer_id
-        new_customer = self.env['res.partner'].browse(vals['customer_id'])
-        formatted_amount = formatLang(self.env, self.amount, currency_obj=self.currency_id)
+        current_amount = formatLang(self.env, self.amount_total, currency_obj=self.currency_id)
 
-        if not new_customer:  # remove case
-            msg = 'Billable expense %s %s removed' % (self.description, formatted_amount)
-        else:
-            customer_link = '<a href=javascript:void(0) data-oe-model=res.partner data-oe-id=%d>%s</a>' % \
-                            (new_customer.id, new_customer.name)
-            if not current_customer:  # assign
-                msg = 'Billable expense %s %s assigned to %s' % \
-                      (self.description, formatted_amount, customer_link)
-            else:  # re-assign
-                msg = 'Billable expense %s %s re-assigned to %s' % \
-                      (self.description, formatted_amount, customer_link)
+        new_amount = vals.get('amount_total', None)
+        new_customer = vals.get('customer_id', None)
+
+        msg = 'Billable expense {} {} '.format(self.description, current_amount)
+        separate = ''
+
+        if new_customer is not None:
+            new_customer = self.env['res.partner'].browse(new_customer)
+            if not new_customer:
+                msg += 'removed'
+            else:
+                customer_link = '<a href=javascript:void(0) data-oe-model=res.partner data-oe-id={}>{}</a>' \
+                    .format(new_customer.id, new_customer.name)
+                if not current_customer:  # assign
+                    msg += 'assigned to {}'.format(customer_link)
+                else:  # re-assign
+                    msg += 're-assigned to {}'.format(customer_link)
+            separate = ', '
+
+        if new_amount is not None:
+            formatted_amount = formatLang(self.env, new_amount, currency_obj=self.currency_id)
+            msg += separate + 'Total Amount changed to {}'.format(formatted_amount)
 
         return msg
 
@@ -90,6 +109,8 @@ class BillableExpenses(models.Model):
     def write(self, vals):
         if 'customer_id' in vals:
             vals['invoice_line_id'] = False  # reassign expense for another customer
+
+        if 'customer_id' in vals or 'amount_total' in vals:
             self._log_message_expense(vals)
 
         res = super(BillableExpenses, self).write(vals)

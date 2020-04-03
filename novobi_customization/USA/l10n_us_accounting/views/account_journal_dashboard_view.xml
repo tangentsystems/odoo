@@ -24,6 +24,9 @@
                     <div class="o_kanban_card_manage_title">
                         <span>View</span>
                     </div>
+                    <div t-if="journal_type == 'bank'">
+                        <a role="menuitem" type="object" name="open_action">Statements</a>
+                    </div>
                     <t t-if="journal_type == 'cash'">
                         <div>
                             <a type="object" name="open_action">Cash Statements</a>

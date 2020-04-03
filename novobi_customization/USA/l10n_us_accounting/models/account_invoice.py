@@ -27,7 +27,8 @@ class AccountInvoiceUSA(models.Model):
     @api.model
     def create(self, values):
         field_name = 'is_write_off'
-        values[field_name] = self.env.context.get(field_name, False)
+        if not values.get(field_name, False):
+            values[field_name] = self.env.context.get(field_name, False)
         invoice = super(AccountInvoiceUSA, self).create(values)
         if not invoice.ar_in_charge and invoice.partner_id.ar_in_charge:
             invoice.ar_in_charge = invoice.partner_id.ar_in_charge
@@ -264,7 +265,8 @@ class AccountInvoiceUSA(models.Model):
                 self._build_invoice_line_item(abs(write_off_amount), company_currency_id.id, account_id.id,
                                               values['invoice_line_ids']))
             # Update is_write_off flag
-            values['is_write_off'] = True
+            if invoice.type == 'out_invoice':
+                values['is_write_off'] = True
             values['fiscal_position_id'] = False
 
             refund_invoice = self.create(values)
