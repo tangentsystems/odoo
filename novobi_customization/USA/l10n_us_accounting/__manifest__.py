@@ -47,6 +47,7 @@
         'views/assets.xml',
         'views/account_report.xml',
         'views/account_bank_reconciliation_data_view.xml',
+        'views/account_bank_statement_views.xml',
         'views/usa_payment_invoice_view.xml',
         'views/res_partner_view.xml',
         'views/account_payment_view.xml',

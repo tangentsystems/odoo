@@ -183,10 +183,27 @@
                 <field name="payment_method_id" string="Payment Method" widget="selection" attrs="{'invisible': [('amount', '=', 0)]}"/>
             </field>
 
-            <!--Hide default write-off in Receive Payment-->
-            <xpath expr="//label[@for='payment_difference']/.." position="attributes">
+            <!--Handle Writeoff-->
+            <field name="payment_difference_handling" position="attributes">
                 <attribute name="invisible">1</attribute>
+            </field>
+            <field name="payment_difference_handling" position="after">
+                <field name="payment_writeoff_option" widget="radio" nolabel="1"/>
+            </field>
+            <xpath expr="//field[@name='writeoff_account_id']/.." position="attributes">
+                <attribute name="attrs">{'invisible': [('payment_writeoff_option','=','open')]}</attribute>
             </xpath>
+            <field name="writeoff_account_id" position="attributes">
+                <attribute name="attrs">{'required': [('payment_writeoff_option', '=', 'reconcile')]}</attribute>
+            </field>
+            <field name="writeoff_label" position="attributes">
+                <attribute name="attrs">{'required': [('payment_writeoff_option', '=', 'reconcile')]}</attribute>
+            </field>
+
+            <!--&lt;!&ndash;Hide default write-off in Receive Payment&ndash;&gt;-->
+            <!--<xpath expr="//label[@for='payment_difference']/.." position="attributes">-->
+                <!--<attribute name="invisible">1</attribute>-->
+            <!--</xpath>-->
         </field>
     </record>
 

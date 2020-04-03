@@ -53,7 +53,7 @@ class BillableExpenseReport(models.AbstractModel):
                     partners[currency][partner]['lines'] = []
 
                 amount = partners[currency][partner].get('amount', 0)
-                partners[currency][partner]['amount'] = amount + l.amount
+                partners[currency][partner]['amount'] = amount + l.amount_total
                 partners[currency][partner]['lines'].append(l)
 
         return partners
@@ -96,7 +96,7 @@ class BillableExpenseReport(models.AbstractModel):
                         columns = [line.bill_date, 'Payable Invoice',
                                    line.supplier_id.name,
                                    line.description,
-                                   self.format_value(line.amount, currency=currency),
+                                   self.format_value(line.amount_total, currency=currency),
                                    {'name': on_draft_invoice, 'blocked': on_draft_invoice}]
                         domain_lines.append({
                             'id': line.id,
