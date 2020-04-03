@@ -29,6 +29,11 @@ class AccountPaymentUSA(models.Model):
     display_applied_invoices = fields.Boolean(compute='_get_display_applied_invoices',
                                               help="Technical field to display/hide applied invoices")
 
+    # Keep Invoice/Bill Open or Write-off
+    payment_writeoff_option = fields.Selection([
+        ('open', 'Keep open'), ('reconcile', 'Mark invoice as fully paid')],
+        default='open', string="Payment Write-off Option", copy=False)
+
     @api.depends('check_number')
     def _compute_check_number_text(self):
         for record in self:
@@ -131,7 +136,34 @@ class AccountPaymentUSA(models.Model):
                                                       'new_mv_line_dicts': []}])
         return res
 
+    def _create_write_off(self):
+        inv_obj = self.env['account.invoice']
+        invoices = inv_obj.browse(self.env.context.get('active_ids')).filtered(lambda x: x.state not in ['draft', 'cancel'])
+
+        for payment in self:
+            if payment.payment_writeoff_option == 'reconcile':
+
+                for inv in invoices:
+                    description = payment.writeoff_label
+                    refund = inv.create_refund(payment.payment_difference, payment.currency_id, payment.writeoff_account_id,
+                                               payment.payment_date, description, inv.journal_id.id)
+
+                    # Put the reason in the chatter
+                    subject = 'Write Off An Account'
+                    body = description
+                    refund.message_post(body=body, subject=subject)
+
+                    # validate, reconcile and stay on invoice form.
+                    to_reconcile_lines = inv.move_id.line_ids.filtered(lambda line:
+                                                                       line.account_id.id == inv.account_id.id)
+                    refund.action_invoice_open()  # validate write-off
+                    to_reconcile_lines += refund.move_id.line_ids.filtered(lambda line:
+                                                                           line.account_id.id == inv.account_id.id)
+                    to_reconcile_lines.filtered(lambda l: l.reconciled == False).reconcile()
+
     def action_validate_invoice_payment(self):
+        self._create_write_off()
+
         res = super(AccountPaymentUSA, self).action_validate_invoice_payment()
 
         for payment in self:

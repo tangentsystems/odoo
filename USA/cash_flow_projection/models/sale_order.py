@@ -6,6 +6,8 @@
 ##############################################################################
 
 from odoo import fields, models, api
+from dateutil.relativedelta import relativedelta
+import datetime
 
 
 class SaleOrder(models.Model):
@@ -14,13 +16,21 @@ class SaleOrder(models.Model):
     amount_so_remaining = fields.Monetary(string='Unpaid Amount', default=0,
                                           compute="_get_remaining_so_amount", store=True)
     
-    @api.depends('amount_total', 'deposit_total', 'deposit_ids', 'invoice_ids')
+    @api.depends('amount_total', 'deposit_total', 'deposit_ids', 'invoice_ids', 'order_line.invoice_status',
+                 'order_line.invoice_lines')
     def _get_remaining_so_amount(self):
         """
         Calculate the remaining amount of Sale Order
         @return:
         """
-        for order in self:
+        from_date = datetime.datetime.today() - relativedelta(months=2)
+        if len(self) > 1:
+            orders = self.filtered(
+                lambda o: o.state == 'sale' and ((o.confirmation_date and o.confirmation_date > from_date) or (
+                        not o.confirmation_date and o.date_order and o.date_order > from_date)))
+        else:
+            orders = self
+        for order in orders:
             invoices = order.invoice_ids.filtered(
                 lambda i: i.state not in ('draft', 'cancel') and i.type == 'out_invoice')
             total_invoice_amount = sum(invoices.mapped('amount_total'))

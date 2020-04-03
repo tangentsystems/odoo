@@ -26,7 +26,7 @@ class CashflowDetailReport(models.AbstractModel):
     # filter_unfold_all = True
     # filter_date = {'date_from': '', 'date_to': '', 'filter': 'this_month'}
     filter_multi_company = None
-
+    
     def _get_columns_name(self, options):
         columns = [{'name': ''}, {'name': 'Payment Date/Due date', 'class': 'date'},
                    {'name': 'Customer/Partner'}, {'name': 'Amount'}]
@@ -235,8 +235,17 @@ class CashflowDetailReport(models.AbstractModel):
         from_date = datetime.today()
         to_date = datetime.today()
         if dateString == 'Past Due Transactions':
-            to_date = from_date - relativedelta(days=1)
-            from_date = from_date - relativedelta(years=20)
+            period_unit = PERIOD_TYPE
+            week_spacing = month_spacing = 0
+            if period_unit == 'week':
+                week_spacing = 1
+            elif period_unit == 'month':
+                month_spacing = 1
+            # Calculate the start day and end date of the cycle
+            weekday = (to_date.weekday() + 1) % 7
+            start_date = to_date - relativedelta(days=(weekday * week_spacing + (to_date.day - 1) * month_spacing))
+            to_date = start_date - relativedelta(days=1)
+            from_date = to_date - relativedelta(months=1)
         elif dateString:
             if '-' in dateString:
                 index = dateString.index('-')
@@ -246,14 +255,11 @@ class CashflowDetailReport(models.AbstractModel):
                 from_date = datetime.strptime(dateString, '%m/%d/%y')
                 to_date = datetime.strptime(dateString, '%m/%d/%y')
             else:
-                index = dateString.index(',')
+                index = dateString.index(' ')
                 month = dateString[:index]
-                year = dateString[index + 2:]
+                year = dateString[index + 1:]
                 from_date = datetime.strptime('{}/01/{}'.format(month, year), '%b/%d/%Y')
                 to_date = from_date + relativedelta(months=1, days=-1)
-                if from_date.month == datetime.today().month:
-                    from_date = datetime.today()
-                    to_date = from_date + relativedelta(months=1, days=-from_date.day)
                 from_date, to_date = from_date, to_date
         return datetime.date(from_date), datetime.date(to_date)
     
