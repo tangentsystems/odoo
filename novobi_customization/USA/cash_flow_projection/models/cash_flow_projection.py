@@ -49,7 +49,7 @@ class CashFlowProjection(models.TransientModel):
             week_spacing = 1
         else:
             month_spacing = 1
-        # Calculate the start day and end date of the cycle (6 periods)
+        # Calculate the start day and end date of the cycle
         today = fields.Date.today()
         weekday = (today.weekday() + 1) % 7
         start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
@@ -58,9 +58,9 @@ class CashFlowProjection(models.TransientModel):
         due_transaction_options = self.env['cash.flow.transaction.type'].sudo().search(
             [('code', '=', 'past_due_transaction')])
         if due_transaction_options and due_transaction_options.is_show and not options.get('from_chart', False):
-            due_date = fields.Date.today() - relativedelta(days=1)
+            due_date = start_date - relativedelta(days=1)
             date_list.append({
-                'start_date': due_date - relativedelta(years=20),
+                'start_date': due_date - relativedelta(months=1),
                 'end_date': due_date,
                 'period_order': -1,
                 'is_due_period': True,
@@ -72,8 +72,8 @@ class CashFlowProjection(models.TransientModel):
             period_end_date = period_start_date + relativedelta(months=month_spacing,
                                                                 weeks=week_spacing,
                                                                 days=date_spacing) - relativedelta(days=1)
-            if i == 0:
-                period_start_date = today
+            # if i == 0:
+            #     period_start_date = today
             date_list.append({
                 'start_date': period_start_date,
                 'end_date': period_end_date,
@@ -131,7 +131,7 @@ class CashFlowProjection(models.TransientModel):
                     rendered_out_lines[index]['amount'] = line['amount']
             # Create the dictionary which contains the information of the period to show in the report
             opening_balance = i < 0 and 0 or round(
-                i == 0 and self.get_opening_balance(period_start_date), 2) or 0.0
+                i == 0 and self.get_opening_balance(today), 2) or 0.0
             period = {
                 'period': period_name,
                 'total_cash_in': round(sum(record['amount'] for record in rendered_in_lines), 2),
@@ -143,7 +143,8 @@ class CashFlowProjection(models.TransientModel):
             }
             
             period['closing_balance'] = round(
-                period['forward_balance'] + period['opening_balance'] + period['total_cash_in'] - period['total_cash_out'], 2)
+                period['forward_balance'] + period['opening_balance'] + period['total_cash_in'] - period[
+                    'total_cash_out'], 2)
             period['cash_flow'] = round(period['total_cash_in'] - period['total_cash_out'], 2)
             periods.append(period)
         # Render context
@@ -168,7 +169,7 @@ class CashFlowProjection(models.TransientModel):
             return start_date.strftime("%m/%d/%y")
         if period_type == 'week':
             return '{}-{}'.format(start_date.strftime("%m/%d/%y"), end_date.strftime("%m/%d/%y"))
-        return start_date.strftime("%b, %Y")
+        return start_date.strftime("%b %Y")
     
     def _get_default_lines(self, options):
         cash_in_default = []
@@ -424,8 +425,8 @@ class CashFlowProjection(models.TransientModel):
         """
         # The first period
         today = datetime.datetime.today().date()
-        if from_date == today:
-            from_date = from_date + relativedelta(days=1)
+        if from_date <= today <= to_date:
+            from_date = today + relativedelta(days=1)
         # The past due transactions
         elif to_date < today:
             to_date = from_date - relativedelta(days=1)
@@ -599,8 +600,8 @@ class CashFlowProjection(models.TransientModel):
         """
         # The first period
         today = datetime.datetime.today().date()
-        if from_date == today:
-            from_date = from_date + relativedelta(days=1)
+        if from_date <= today <= to_date:
+            from_date = today + relativedelta(days=1)
         # The past due transactions
         elif to_date < today:
             to_date = from_date - relativedelta(days=1)

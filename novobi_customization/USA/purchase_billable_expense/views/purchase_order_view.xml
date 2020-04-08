@@ -43,7 +43,10 @@
                     <tree editable="bottom" create="0" delete="0" noStickyHeader="1">
                         <field name="currency_id" invisible="1"/>
                         <field name="description" readonly="1"/>
-                        <field name="amount" widget="monetary" readonly="1"/>
+                        <field name="amount" readonly="1"/>
+                        <field name="amount_markup"/>
+                        <field name="amount_markup_percentage"/>
+                        <field name="amount_total" readonly="1" force_save="1"/>
                         <field name="customer_id" domain="[('customer', '=', 1)]" options="{'no_open': True}"/>
                     </tree>
                 </field>

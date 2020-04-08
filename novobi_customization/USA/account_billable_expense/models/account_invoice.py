@@ -66,6 +66,9 @@ class AccountInvoiceUSA(models.Model):
             'target': 'new',
             'res_id': self.id,
             'view_id': view_id,
+            'context': {
+                'form_view_initial_mode': 'edit'
+            }
         }
 
     def assign_customer(self):
