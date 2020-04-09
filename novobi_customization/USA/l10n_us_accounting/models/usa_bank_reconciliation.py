@@ -85,9 +85,12 @@ class USABankReconciliation(models.AbstractModel):
         self._mark_applied_transaction(bank_reconciliation_data_id, aml_ids, batch_ids)
 
         for line in aml_ids:
+            partner_name = line.partner_id.name if line.partner_id else ''
             check_number = line.payment_id.check_number if line.payment_id and line.payment_id.check_number else ''
             columns = [self._format_date(line.date),
-                       line.partner_id.name if line.partner_id else '',
+                       {'name': partner_name[:20],
+                        'title': partner_name,
+                        },
                        {'name': line.name[:30] if line.name else '',
                         'title': line.name
                         },
