@@ -108,7 +108,8 @@
             </xpath>
 
             <xpath expr="//span[hasclass('o_account_report_column_value')]" position="replace">
-                <span class="'o_account_report_column_value'">
+                <span class="'o_account_report_column_value'"
+                      t-att-title="column.get('title', '')">
                     <t t-if="column.get('blocked') != None">
                         <input t-if="column['blocked'] == False" type="checkbox" name="blocked"
                                t-att-value="column['blocked']" t-att-debit="column['debit']"

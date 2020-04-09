@@ -55,7 +55,9 @@ class BankReconciliationData(models.Model):
     difference = fields.Monetary('Adjustment')
     payments_cleared = fields.Monetary('Payments Cleared')
     deposits_cleared = fields.Monetary('Deposits Cleared')
-    uncleared_amount = fields.Monetary('Uncleared Transactions')
+    payments_uncleared = fields.Monetary('Uncleared Payments')  # Negative amount
+    deposits_uncleared = fields.Monetary('Uncleared Deposits')
+    uncleared_amount = fields.Monetary('Uncleared Transactions')  # no longer use
     register_balance = fields.Monetary('Register Balance')
     change_amount = fields.Monetary('Changes', compute='_compute_change_amount')
     payment_count = fields.Char()
@@ -102,13 +104,14 @@ class BankReconciliationData(models.Model):
 
     @api.model
     def update_bank_reconciliation_report(self):
-        _logger.info("Update Bank Recocniliation Reports")
+        _logger.info("Update Bank Reconciliation Reports")
         reconciled_reports = self.sudo().search([('state', '=', 'reconciled')])
         for report in reconciled_reports:
-            uncleared_amount = sum(record.amount for record in report.deposits_uncleared_ids) - sum(
-                record.amount for record in report.payments_uncleared_ids)
-            register_balance = report.ending_balance - uncleared_amount
-            report.write({'uncleared_amount': uncleared_amount,
+            payments_uncleared = - sum(rec.amount for rec in report.payments_uncleared_ids)
+            deposits_uncleared = sum(rec.amount for rec in report.deposits_uncleared_ids)
+            register_balance = report.ending_balance + payments_uncleared + deposits_uncleared
+            report.write({'payments_uncleared': payments_uncleared,
+                          'deposits_uncleared': deposits_uncleared,
                           'register_balance': register_balance})
 
     ############################
@@ -154,11 +157,13 @@ class BankReconciliationData(models.Model):
 
         # Create report
         self._create_report_line()
-        uncleared_amount = sum(record.amount for record in self.deposits_uncleared_ids) - sum(record.amount for record in self.payments_uncleared_ids)
-        register_balance = self.ending_balance - uncleared_amount
+        payments_uncleared = - sum(record.amount for record in self.payments_uncleared_ids)
+        deposits_uncleared = sum(record.amount for record in self.deposits_uncleared_ids)
+        register_balance = self.ending_balance + payments_uncleared + deposits_uncleared
         payment_count = len(self.payments_cleared_ids)
         deposit_count = len(self.deposits_cleared_ids)
-        self.write({'uncleared_amount': uncleared_amount,
+        self.write({'payments_uncleared': payments_uncleared,
+                    'deposits_uncleared': deposits_uncleared,
                     'register_balance': register_balance,
                     'payment_count': '(' + str(payment_count) + ')',
                     'deposit_count': '(' + str(deposit_count) + ')',
