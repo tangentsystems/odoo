@@ -14,5 +14,23 @@
                      else page['amount_in_word'].replace(page['currency'].currency_unit_label, '')"/>
             </xpath>
         </template>
+
+        <template id="ckus_stub" name="firefly_ckus_stub" inherit_id="l10n_us_check_printing.ckus_stub">
+            <!--Header-->
+            <xpath expr="//th[3]" position="replace">
+                <th class="text-right">Original Amount</th>
+            </xpath>
+
+            <xpath expr="//th[5]" position="before">
+                <th class="text-right">Credit</th>
+            </xpath>
+
+            <!--Line-->
+            <xpath expr="//td[5]" position="before">
+                <td class="text-right">
+                    <t t-esc="stub_line['credit_amount']"/>
+                </td>
+            </xpath>
+        </template>
     </data>
 </odoo>

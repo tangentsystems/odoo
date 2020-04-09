@@ -88,7 +88,9 @@ class USABankReconciliation(models.AbstractModel):
             check_number = line.payment_id.check_number if line.payment_id and line.payment_id.check_number else ''
             columns = [self._format_date(line.date),
                        line.partner_id.name if line.partner_id else '',
-                       line.name,
+                       {'name': line.name[:30] if line.name else '',
+                        'title': line.name
+                        },
                        check_number,
                        self.format_value(line.credit) if line.credit > 0 else '',
                        self.format_value(line.debit) if line.debit > 0 else '',
@@ -113,7 +115,11 @@ class USABankReconciliation(models.AbstractModel):
         # Batch deposit is in Deposit side.
         for line in batch_ids:
             columns = [self._format_date(line.date),
-                       '', line.name, '', '',
+                       '',
+                       {'name': line.name[:30] if line.name else '',
+                        'title': line.name
+                        },
+                       '', '',
                        self.format_value(line.amount),
                        {'name': False, 'blocked': line.temporary_reconciled,
                         'debit': line.amount,
