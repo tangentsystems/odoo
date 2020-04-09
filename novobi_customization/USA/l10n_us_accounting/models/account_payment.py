@@ -4,6 +4,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools import float_compare
+from odoo.tools.misc import formatLang
 from ..utils.utils import has_multi_currency_group
 
 
@@ -273,6 +274,34 @@ class AccountPaymentUSA(models.Model):
             record.write({'payment_with_invoices': 0, 'outstanding_payment': 0, 'amount': 0, 'batch_deposit_id': False})
             if record.open_invoice_ids:
                 record.open_invoice_ids.unlink()
+        return res
+
+    def _check_make_stub_line(self, invoice):
+        res = super()._check_make_stub_line(invoice)
+
+        # Get Credit/Discount Amount
+        credit_amount = 0
+        amount_field = 'amount_currency' if self.currency_id != self.journal_id.company_id.currency_id else 'amount'
+        # Looking for Vendor Credit Note in Vendor Bill
+        if invoice.type in ['in_invoice', 'out_refund']:
+            # This is for Vendor Bill only
+            credit_note_ids = invoice.move_id.line_ids.mapped('matched_debit_ids').filtered(
+                lambda r: r.debit_move_id.invoice_id and r.debit_move_id.invoice_id.type == 'in_refund')
+            credit_amount = abs(sum(credit_note_ids.mapped(amount_field)))
+
+            # Calculate Other Payment amount
+            other_payment_ids = invoice.move_id.line_ids.mapped('matched_debit_ids').filtered(
+                lambda r: r.debit_move_id not in self.move_line_ids and r.id not in credit_note_ids.ids)
+            other_payment_amount = abs(sum(other_payment_ids.mapped(amount_field)))
+
+        # Update Amount Residual, BEFORE apply this check
+        amount_residual = invoice.amount_total - other_payment_amount
+
+        res.update({'credit_amount': formatLang(self.env, credit_amount, currency_obj=invoice.currency_id),
+                    'amount_residual': formatLang(self.env, amount_residual,
+                                                  currency_obj=invoice.currency_id) if amount_residual * 10 ** 4 != 0 else '-'
+                    })
+
         return res
 
     ####################################################
