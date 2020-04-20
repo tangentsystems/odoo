@@ -8,12 +8,12 @@ class AccountBankStatementLineMatchingMixin(models.AbstractModel):
     _name = 'account.bank.statement.line.matching.mixin'
     _description = 'Bank Statement Line Matching Mixin'
 
-    name = fields.Char(string='Number', compute='_compute_name', readonly=True, store=True, index=True)
-    date = fields.Date(compute='_compute_date', index=True, readonly=True, store=True)
+    name = fields.Char(string='Number', compute='_compute_name', readonly=True, store=False, index=True)
+    date = fields.Date(compute='_compute_date', index=True, readonly=True, store=False)
     partner_id = fields.Many2one('res.partner', string='Payee', ondelete='set null', compute='_compute_partner_id',
-                                 readonly=True, store=True)
-    journal_currency_id = fields.Many2one(related='mapping_id.journal_currency_id', readonly=True, store=True)
-    total_amount = fields.Monetary(string='Total Amount', compute='_compute_total_amount', readonly=True, store=True,
+                                 readonly=True, store=False)
+    journal_currency_id = fields.Many2one(related='mapping_id.journal_currency_id', readonly=True, store=False)
+    total_amount = fields.Monetary(string='Total Amount', compute='_compute_total_amount', readonly=True, store=False,
                                    currency_field='journal_currency_id')
 
     journal_entry_id = fields.Many2one('account.move.line', string='Journal Item', readonly=True, ondelete='cascade',
