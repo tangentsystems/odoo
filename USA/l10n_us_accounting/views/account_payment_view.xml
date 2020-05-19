@@ -245,6 +245,9 @@
             <field name="partner_id" position="attributes">
                 <attribute name="string">Customer/Vendor</attribute>
             </field>
+            <field name="state" position="after">
+                <field name="has_been_cashed"/>
+            </field>
         </field>
     </record>
 
@@ -265,6 +268,9 @@
             </field>
             <field name="partner_id" position="attributes">
                 <attribute name="string">Customer/Vendor</attribute>
+            </field>
+            <field name="state" position="after">
+                <field name="has_been_cashed"/>
             </field>
         </field>
     </record>
@@ -352,6 +358,15 @@
 
             <filter context="{'group_by': 'journal_id'}" position="attributes">
                 <attribute name="string">Bank Account</attribute>
+            </filter>
+
+            <filter name="state_sent" position="before">
+                <filter string="Checks Have Been Cashed"
+                        domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                        ('has_been_cashed', '=', True)]" name="checks_been_cashed"/>
+                <filter string="Checks to Cash"
+                        domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                        ('has_been_cashed', '=', False)]" name="checks_to_cash"/>
             </filter>
 
             <!--<filter context="{'group_by': 'partner_id'}" position="before">

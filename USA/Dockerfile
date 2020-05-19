@@ -1,5 +1,5 @@
 ARG BASE_IMAGE_TAG
-FROM 811770454613.dkr.ecr.us-east-1.amazonaws.com/base-image:$BASE_IMAGE_TAG
+FROM 811770454613.dkr.ecr.us-east-1.amazonaws.com/base-image:us-accounting-v12.2020-05-19
 
 #Install requirements
 COPY requirements.txt /requirements.txt

@@ -38,6 +38,10 @@ class CustomerUSA(models.Model):
     ar_in_charge = fields.Many2one(string='AR In Charge', comodel_name='res.users')
     type = fields.Selection(selection_add=[('invoice', 'Billing Address')])
 
+    print_check_as = fields.Boolean('Print on check as',
+                                    help='Check this box if you want to use a different name on checks.')
+    check_name = fields.Char('Name on Check')
+
     # fields for vendor
     vendor_company_tax_id = fields.Char()
     vendor_individual_tax_id = fields.Char()
@@ -56,6 +60,11 @@ class CustomerUSA(models.Model):
 
     # override
     partner_ledger_label = fields.Char(help='')  # remove help
+
+    @api.onchange('print_check_as')
+    def _onchange_print_check_as(self):
+        for record in self:
+            record.check_name = record.name
 
     @api.model
     def create(self, vals):

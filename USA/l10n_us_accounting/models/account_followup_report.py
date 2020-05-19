@@ -69,10 +69,11 @@ class FollowUpReportUSA(models.AbstractModel):
             if currency not in res:
                 res[currency] = []
             res[currency].append(l)
+
         for currency, aml_recs in res.items():
             total = not_due = _0_30_past_due = _31_60_past_due = _61_90_past_due = _91_120_past_due = _120_plus_past_due = 0
-            aml_recs = sorted(aml_recs, key=lambda aml: aml.blocked)
-            for aml in aml_recs:
+
+            for aml in filter(lambda r: not r.blocked, aml_recs):
                 amount = aml.currency_id and aml.amount_residual_currency or aml.amount_residual
                 total += not aml.blocked and amount or 0
                 number_due_days = (fields.Date.from_string(today) - fields.Date.from_string(aml.date_maturity)).days

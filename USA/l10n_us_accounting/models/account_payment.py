@@ -35,6 +35,10 @@ class AccountPaymentUSA(models.Model):
         ('open', 'Keep open'), ('reconcile', 'Mark invoice as fully paid')],
         default='open', string="Payment Write-off Option", copy=False)
 
+    has_been_cashed = fields.Boolean('Has Been Cashed', compute='_compute_has_been_cashed',
+                                     search='_search_has_been_cashed',
+                                     help="True if this check payment has been matched with a bank statement line")
+
     @api.depends('check_number')
     def _compute_check_number_text(self):
         for record in self:
@@ -90,6 +94,36 @@ class AccountPaymentUSA(models.Model):
                 record.display_applied_invoices = True
             else:
                 record.display_applied_invoices = False
+
+    def _compute_has_been_cashed(self):
+        BSL = self.env['account.bank.statement.line']
+        # check_printing is out_bound, batch_payment is in_bound
+        check_payments = self.filtered(lambda x: x.payment_method_id.code in ['check_printing', 'batch_payment'] and
+                                                 x.state not in ['draft', 'cancelled'])
+
+        for record in check_payments:
+            domain = [('status', '=', 'confirm')]
+            if record.batch_payment_id:
+                domain.append(('applied_batch_ids', 'in', [record.batch_payment_id.id]))
+            else:
+                domain.append(('applied_aml_ids', 'in', record.move_line_ids.ids))
+            reviewed_transactions = BSL.search(domain)
+            record.has_been_cashed = True if reviewed_transactions else False
+
+    def _search_has_been_cashed(self, operator, value):
+        BSL = self.env['account.bank.statement.line']
+        reviewed_transactions = BSL.search([('status', '=', 'confirm')])
+
+        results = self.search([('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                               '|',
+                               '&', ('batch_payment_id', '!=', False),
+                               ('batch_payment_id.id', 'in', reviewed_transactions.mapped('applied_batch_ids').ids),
+                               '&', ('batch_payment_id', '=', False),
+                               ('move_line_ids', 'in', reviewed_transactions.mapped('applied_aml_ids').ids)])
+        result_operator = 'not in'
+        if (operator == "=" and value) or (operator == "!=" and not value):
+            result_operator = 'in'
+        return [('id', result_operator, results.ids)]
 
     # not return super()
     @api.onchange('amount', 'currency_id')
@@ -276,6 +310,7 @@ class AccountPaymentUSA(models.Model):
                 record.open_invoice_ids.unlink()
         return res
 
+    # Check Printing
     def _check_make_stub_line(self, invoice):
         res = super()._check_make_stub_line(invoice)
 
@@ -301,6 +336,14 @@ class AccountPaymentUSA(models.Model):
                     'amount_residual': formatLang(self.env, amount_residual,
                                                   currency_obj=invoice.currency_id) if amount_residual * 10 ** 4 != 0 else '-'
                     })
+
+        return res
+
+    def _check_build_page_info(self, i, p):
+        res = super()._check_build_page_info(i, p)
+
+        if self.partner_id.print_check_as:
+            res['partner_name'] = self.partner_id.check_name
 
         return res
 

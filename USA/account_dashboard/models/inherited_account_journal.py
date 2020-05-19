@@ -29,7 +29,7 @@ class AccountJournal(models.Model):
             selection = []
             get_json_data_for_selection(self, selection, self.period_by_month, self.default_period_by_month)
             function_retrieve = 'retrieve_account_invoice'
-            extra_param = [self.type]
+            extra_param = [self.type, self.id]
 
             self.kanban_dashboard_graph = json.dumps(
                 get_json_render(type_data, False,
@@ -111,7 +111,7 @@ class AccountJournal(models.Model):
             'color': COLOR_VALIDATION_DATA}]
 
     @api.model
-    def retrieve_account_invoice(self, date_from, date_to, period_type=BY_MONTH, type_invoice=VENDOR_BILLS):
+    def retrieve_account_invoice(self, date_from, date_to, period_type=BY_MONTH, type_invoice=VENDOR_BILLS, journal_id=None):
         """ API is used to response total amount of open/paid account invoice
         and any info relate to show in "Customer Invoices" and "Vendor Bills"
         kanban sections.
@@ -141,11 +141,13 @@ class AccountJournal(models.Model):
                                          LIMIT 1), 1.0) AS rate
                         FROM res_currency c"""
 
-        transferred_currency = """SELECT ai.date_invoice, c.rate * ai.residual_signed AS residual_signed_tran, 
+        transferred_currency = """SELECT ai.journal_id, ai.date_invoice, c.rate * ai.residual_signed AS residual_signed_tran, 
                                         c.rate * ai.amount_total_signed AS amount_total_signed_tran, state, type, company_id
                                   FROM account_invoice AS ai
                                          LEFT JOIN ({currency_table}) AS c
                                            ON ai.currency_id = c.id""".format(currency_table=currency, )
+
+        journal = 'aic.journal_id = {} AND '.format(journal_id) if journal_id else ''
 
         query = """SELECT date_part('year', aic.date_invoice::date) as year,
                                   date_part(%s, aic.date_invoice::date) AS period,
@@ -158,9 +160,10 @@ class AccountJournal(models.Model):
                                   aic.date_invoice <= %s AND
                                   aic.state in ('open', 'in_payment', 'paid') AND
                                   aic.type = %s AND 
+                                  {journal}
                                   aic.company_id IN %s
                             GROUP BY year, period
-                            ORDER BY year, period;""".format(transferred_currency=transferred_currency, )
+                            ORDER BY year, period;""".format(transferred_currency=transferred_currency, journal=journal)
 
         company_ids = get_list_companies_child(self.env.user.company_id)
         name = fields.Date.today()

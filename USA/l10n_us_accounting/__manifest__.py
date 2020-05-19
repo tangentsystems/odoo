@@ -45,6 +45,7 @@
         'wizard/print_prenumbered_checks_view.xml',
 
         'views/assets.xml',
+        'views/ir_qweb_widget_templates.xml',
         'views/account_report.xml',
         'views/account_bank_reconciliation_data_view.xml',
         'views/account_bank_statement_views.xml',
