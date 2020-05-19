@@ -51,8 +51,7 @@ class CashFlowProjection(models.TransientModel):
             month_spacing = 1
         # Calculate the start day and end date of the cycle
         today = fields.Date.today()
-        weekday = (today.weekday() + 1) % 7
-        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
+        start_date = self.get_start_date(week_spacing, month_spacing)
         # Create list of date range
         date_list = []
         due_transaction_options = self.env['cash.flow.transaction.type'].sudo().search(
@@ -155,6 +154,12 @@ class CashFlowProjection(models.TransientModel):
             'period_type': period_unit,
         }
         return rcontext, num_period, period_unit
+    
+    def get_start_date(self, week_spacing, month_spacing):
+        today = fields.Date.today()
+        weekday = (today.weekday() + 1) % 7
+        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
+        return start_date
     
     def _get_period_name(self, start_date, end_date, period_type, is_due_period):
         """

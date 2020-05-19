@@ -45,15 +45,15 @@ class USAPaymentInvoice(models.Model):
                  'invoice_id', 'invoice_id.date_due')
     def _get_amount_residual(self):
         for record in self:
-            if record.account_move_line_id:
-                record.date_due = record.invoice_id.date_due if record.invoice_id \
-                    else record.account_move_line_id.date_maturity
-                if record.account_move_line_id.currency_id:
-                    record.amount_total = abs(record.account_move_line_id.amount_currency)
-                    record.residual = abs(record.account_move_line_id.amount_residual_currency)
+            aml_id = record.account_move_line_id
+            if aml_id:
+                record.date_due = aml_id.date_maturity or record.invoice_id and record.invoice_id.date_due
+                if aml_id.currency_id:
+                    record.amount_total = abs(aml_id.amount_currency)
+                    record.residual = abs(aml_id.amount_residual_currency)
                 else:
-                    record.amount_total = abs(record.account_move_line_id.balance)
-                    record.residual = abs(record.account_move_line_id.amount_residual)
+                    record.amount_total = abs(aml_id.balance)
+                    record.residual = abs(aml_id.amount_residual)
 
     @api.depends('account_move_line_id')
     def _get_has_multi_currency_group(self):

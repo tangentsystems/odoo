@@ -31,11 +31,12 @@ class SaleOrder(models.Model):
         else:
             orders = self
         for order in orders:
-            invoices = order.invoice_ids.filtered(
+            order_sudo = order.sudo()
+            invoices = order_sudo.invoice_ids.filtered(
                 lambda i: i.state not in ('draft', 'cancel') and i.type == 'out_invoice')
             total_invoice_amount = sum(invoices.mapped('amount_total'))
             total_deposit_amount = sum(
-                order.deposit_ids.filtered(lambda d: d.state not in ('draft', 'cancelled')).mapped(
+                order_sudo.deposit_ids.filtered(lambda d: d.state not in ('draft', 'cancelled')).mapped(
                     'outstanding_payment'))
             order.update({
                 'amount_so_remaining': order.amount_total - total_invoice_amount - total_deposit_amount,
