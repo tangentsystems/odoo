@@ -1,7 +1,7 @@
 [options]
 max_cron_threads = {{ config['MAX_CRON_THREADS'] | default(1, true) }}
 proxy_mode = True
-addons_path = /opt/odoo/enterprise,/opt/odoo/odoo/addons,/opt/odoo/session-store,/opt/odoo/customized_addons
+addons_path = /opt/odoo/enterprise,/opt/odoo/shared_modules,/opt/odoo/odoo/addons,/opt/odoo/customized_addons
 data_dir = /var/lib/odoo/
 without_demo=all
 
@@ -22,11 +22,9 @@ dbfilter = {{ config['DB_FILTER'] | default('', true) }}
 
 
 {% if config['Redis_Host'] is defined %}
-enable_redis = True
-redis_host = {{ config['Redis_Host'] | default('', true) }}
-redis_port = 6379
-redis_dbindex = 0
-redis_session_prefix = us-accounting.qa.novobi.com-
+session_store_redis = True
+session_store_host = {{ config['Redis_Host'] | default('', true) }}
+session_store_dbindex = 0
 {% endif %}
 
-server_wide_modules={{ config['SERVER_WIDE_MODULES'] | default("web,base,smile_redis_session_store", true) }}
+server_wide_modules=web,base,muk_session_store
