@@ -83,6 +83,13 @@ class USABankReconciliation(models.AbstractModel):
         aml_ids = self._get_aml(bank_reconciliation_data_id)
         batch_ids = self._get_batch_deposit(bank_reconciliation_data_id)
         self._mark_applied_transaction(bank_reconciliation_data_id, aml_ids, batch_ids)
+        bank_reconciliation_data_id.write({'aml_ids': [(6, 0, aml_ids.ids)],
+                                           'batch_ids': [(6, 0, batch_ids.ids)]})
+
+        # Filter by Start Date:
+        if bank_reconciliation_data_id.start_date:
+            aml_ids = aml_ids.filtered(lambda x: x.date >= bank_reconciliation_data_id.start_date)
+            batch_ids = batch_ids.filtered(lambda x: x.date >= bank_reconciliation_data_id.start_date)
 
         for line in aml_ids:
             partner_name = line.partner_id.name if line.partner_id else ''

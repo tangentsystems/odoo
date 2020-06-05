@@ -37,75 +37,75 @@
 
                     <div name="summary" class="mt16 mb32">
                         <strong>Summary</strong>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Statement Beginning Balance</span>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="beginning_balance"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Payments Cleared </span><field name="payment_count"/>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="payments_cleared"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Deposits Cleared </span><field name="deposit_count"/>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="deposits_cleared"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Adjustment</span>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="difference"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Statement Ending Balance</span>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="ending_balance"/>
                             </div>
                         </div>
                         <!--<div>-->
-                            <!--<div class="col-sm-10">-->
+                            <!--<div class="col-8 offset-1">-->
                                 <!--<span>Uncleared Transactions as of </span><field name="statement_ending_date"/>-->
                             <!--</div>-->
-                            <!--<div class="text-right">-->
+                            <!--<div class="col-2 text-right">-->
                                 <!--<field name="uncleared_amount"/>-->
                             <!--</div>-->
                         <!--</div>-->
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Uncleared Payments as at </span><field name="statement_ending_date"/>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="payments_uncleared"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Uncleared Deposits as at </span><field name="statement_ending_date"/>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="deposits_uncleared"/>
                             </div>
                         </div>
-                        <div>
-                            <div class="col-sm-10">
+                        <div class="row">
+                            <div class="col-8 offset-1">
                                 <span>Register Balance as at </span><field name="statement_ending_date"/>
                             </div>
-                            <div class="text-right">
+                            <div class="col-2 text-right">
                                 <field name="register_balance"/>
                             </div>
                         </div>
@@ -190,7 +190,7 @@
                                attrs="{'readonly': [('previous_reconciliation_id', '!=', False)]}"/>
                         <field name="ending_balance" required="1"/>
                         <div colspan="2">
-                            <p>Notes: Input a negative ending balance if there is a statement balance that you have to pay for.</p>
+                            <p class="text-muted">Notes: Input a negative ending balance if there is a statement balance that you have to pay for.</p>
                         </div>
                     </group>
                     <group>
@@ -198,6 +198,10 @@
                                attrs="{'readonly': [('previous_reconciliation_id', '!=', False)],
                                'invisible': [('previous_reconciliation_id', '=', False)]}"/>
                         <field name="statement_ending_date" required="1"/>
+                        <field name="start_date" string="Show transactions from"/>
+                        <div colspan="2">
+                            <p class="text-muted font-weight-bold">Notes: Uncleared transactions before this date are still listed in reconciliation report.</p>
+                        </div>
                     </group>
                 </group>
 

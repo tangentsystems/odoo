@@ -366,7 +366,7 @@
                         ('has_been_cashed', '=', True)]" name="checks_been_cashed"/>
                 <filter string="Checks to Cash"
                         domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
-                        ('has_been_cashed', '=', False)]" name="checks_to_cash"/>
+                        ('has_been_cashed', '=', False), ('state', 'in', ['posted', 'sent'])]" name="checks_to_cash"/>
             </filter>
 
             <!--<filter context="{'group_by': 'partner_id'}" position="before">
