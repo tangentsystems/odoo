@@ -28,6 +28,7 @@ class BankReconciliationData(models.Model):
 
     statement_beginning_date = fields.Date('Statement Beginning Date')
     statement_ending_date = fields.Date('Statement Ending Date')
+    start_date = fields.Date('Start Date')
     reconcile_on = fields.Date('Reconcile On')
     beginning_balance = fields.Monetary('Beginning Balance')
     ending_balance = fields.Monetary('Ending Balance')
@@ -125,8 +126,8 @@ class BankReconciliationData(models.Model):
         self.write({'difference': difference,
                     'payments_cleared': cleared_payments,
                     'deposits_cleared': cleared_deposits,
-                    'aml_ids': [(6, 0, aml_ids)],
-                    'batch_ids': [(6, 0, batch_ids)],
+                    # 'aml_ids': [(6, 0, aml_ids)],
+                    # 'batch_ids': [(6, 0, batch_ids)],
                     'reconcile_on': datetime.today(),
                     })
 

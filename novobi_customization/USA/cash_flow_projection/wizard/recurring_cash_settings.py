@@ -16,7 +16,7 @@ class PeriodSettings(models.TransientModel):
     period_type = fields.Selection(string='Period Type',
                                    selection=[('day', 'day'), ('week', 'week'), ('month', 'month')],
                                    default='month', required=True)
-    cash_type = fields.Selection(string='Period Type', selection=[('cash_in', 'Cash In'), ('cash_out', 'Cash Out')])
+    cash_type = fields.Selection(string='Cash Type', selection=[('cash_in', 'Cash In'), ('cash_out', 'Cash Out')])
     
     @api.multi
     def set_recurring_cash_in(self):
