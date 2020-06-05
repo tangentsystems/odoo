@@ -248,7 +248,7 @@ class AccountMoveLineUSA(models.Model):
             return True
         rec_move_ids = self.env['account.partial.reconcile']
         for account_move_line in self:
-            account_move_line.move_id._check_lock_date()
+            # account_move_line.move_id._check_lock_date()
             id = self.env.context.get('invoice_id', False)
             if id:  # un-reconcile in Invoice form
                 invoice = self.env['account.invoice'].browse(id)

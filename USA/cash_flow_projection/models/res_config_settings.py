@@ -17,3 +17,4 @@ class ResConfigSettings(models.TransientModel):
                                               string='Due date for PO', readonly=False)
     cash_flow_period_number = fields.Integer(related='company_id.cash_flow_period_number', string='Number of period',
                                              readonly=False)
+    module_cash_flow_projection_deposit = fields.Boolean("Deposits for Cash Flow Projection")

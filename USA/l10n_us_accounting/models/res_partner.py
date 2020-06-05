@@ -46,7 +46,7 @@ class CustomerUSA(models.Model):
     vendor_company_tax_id = fields.Char()
     vendor_individual_tax_id = fields.Char()
     vendor_eligible_1099 = fields.Boolean(string='Vendor Eligible for 1099', default=False)
-    print_on_check = fields.Char(string='Print on Check as', default=lambda self: self.name)
+    print_on_check = fields.Char(string='Print on Check as', default=lambda self: self.name)  # no longer use
     debit = fields.Monetary(store=True)  # override to store
     debit_overdue_amount = fields.Monetary(compute='_debit_overdue_balance_get', string='Overdue Balance', store=True)
     debit_open_balance = fields.Monetary(compute='_debit_overdue_balance_get', string='Open Balance', store=True)
@@ -69,8 +69,6 @@ class CustomerUSA(models.Model):
     @api.model
     def create(self, vals):
         vals['ref'] = self._get_ref_next_sequence()
-        if not vals.get('print_on_check'):
-            vals['print_on_check'] = vals.get('name', False)
         return super(CustomerUSA, self).create(vals)
 
     @api.model
