@@ -5,6 +5,15 @@
         <field name="model">account.payment</field>
         <field name="inherit_id" ref="account.view_account_payment_form"/>
         <field name="arch" type="xml">
+            <!--Void Header-->
+            <header position="after">
+                <field name="has_been_voided" invisible="1"/>
+                <div class="alert alert-warning" role="alert" style="margin-bottom:0px; text-align:center;"
+                     attrs="{'invisible': [('has_been_voided','=',False)]}">
+                    This payment has been <span style="font-weight:bold;">voided.</span>
+                </div>
+            </header>
+
             <field name="payment_transaction_id" position="after">
                 <field name="ar_in_charge" attrs="{'invisible': [('payment_type', '!=', 'inbound')]}"/>
                 <field name="show_cancel_button" invisible="1"/>
@@ -247,6 +256,7 @@
             </field>
             <field name="state" position="after">
                 <field name="has_been_cashed"/>
+                <field name="has_been_voided"/>
             </field>
         </field>
     </record>
@@ -271,6 +281,7 @@
             </field>
             <field name="state" position="after">
                 <field name="has_been_cashed"/>
+                <field name="has_been_voided"/>
             </field>
         </field>
     </record>
@@ -398,8 +409,13 @@
                         attrs="{'invisible':[('show_cancel_button', '!=', 4)]}"
                         type="object"
                         confirm="This payment has been reconciled. Canceling this payment will make your reconciliation unbalanced. Do you still want to cancel it?"/>
-
                 <button name="delete_payment" type="object" string="Delete" confirm="Are you sure you want to delete this payment?"/>
+                <field name="has_been_voided" invisible="1"/>
+                <button name="action_void" string="Void"
+                        attrs="{'invisible':['|', ('has_been_voided', '!=', False), ('state', 'in', ['draft', 'cancelled'])]}"
+                        type="object"
+                        help="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"
+                        confirm="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"/>
             </xpath>
         </field>
     </record>

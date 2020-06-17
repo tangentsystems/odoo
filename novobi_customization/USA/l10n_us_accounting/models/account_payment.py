@@ -35,9 +35,10 @@ class AccountPaymentUSA(models.Model):
         ('open', 'Keep open'), ('reconcile', 'Mark invoice as fully paid')],
         default='open', string="Payment Write-off Option", copy=False)
 
-    has_been_cashed = fields.Boolean('Has Been Cashed', compute='_compute_has_been_cashed',
+    has_been_cashed = fields.Boolean('Cashed', compute='_compute_has_been_cashed',
                                      search='_search_has_been_cashed',
                                      help="True if this check payment has been matched with a bank statement line")
+    has_been_voided = fields.Boolean('Voided')
 
     @api.depends('check_number')
     def _compute_check_number_text(self):
@@ -305,10 +306,18 @@ class AccountPaymentUSA(models.Model):
         res = super(AccountPaymentUSA, self).cancel()
         for record in self:
             # reset all values + remove from batch deposit
-            record.write({'payment_with_invoices': 0, 'outstanding_payment': 0, 'amount': 0, 'batch_deposit_id': False})
+            record.write({'payment_with_invoices': 0,
+                          'outstanding_payment': 0,
+                          'amount': 0,
+                          'batch_deposit_id': False,
+                          'has_been_voided': False})
             if record.open_invoice_ids:
                 record.open_invoice_ids.unlink()
         return res
+
+    def action_void(self):
+        action = self.env.ref('account.action_view_account_move_reversal').read()[0]
+        return action
 
     # Check Printing
     def _check_make_stub_line(self, invoice):
