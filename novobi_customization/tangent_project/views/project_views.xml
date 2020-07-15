@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="project_task_tree2_inherit_tangent" model="ir.ui.view">
+        <field name="name">project_view_task_form2_inherit_tangent</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_tree2"/>
+        <field name="arch" type="xml">
+            <tree position="attributes">
+                <attribute name="default_order">name</attribute>
+            </tree>
+        </field>
+    </record>
+</odoo>
