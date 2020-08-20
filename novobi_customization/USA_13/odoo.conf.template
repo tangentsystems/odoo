@@ -1,0 +1,30 @@
+[options]
+max_cron_threads = {{ config['MAX_CRON_THREADS'] | default(1, true) }}
+proxy_mode = True
+addons_path = /opt/odoo/enterprise,/opt/odoo/odoo/addons,/opt/odoo/shared_modules,/opt/odoo/customized_addons
+data_dir = /var/lib/odoo/
+without_demo=all
+
+workers = {{ config['WORKERS'] | default(2, true) }}
+limit_time_cpu = 72000
+limit_time_real = 72000
+
+admin_passwd = {{ config['ADMIN_PASS'] | default("W$vH8x:rXWD>.+5(", true) }}
+db_maxconn = {{ config['DB_MAX_CONN'] | default(48, true) }}
+db_host = {{ config['db_info']['Host'] | default("", true) }}
+db_port = 5432
+db_user = {{ config['db_info']['User'] | default("", true) }}
+db_password = {{ config['db_info']['Password'] | default("", true) }}
+
+{% if config['DB_FILTER'] is defined %}
+dbfilter = {{ config['DB_FILTER'] | default('', true) }}
+{% endif %}
+
+
+{% if config['Redis_Host'] is defined %}
+session_store_redis = True
+session_store_host = {{ config['Redis_Host'] | default('', true) }}
+session_store_dbindex = 0
+{% endif %}
+
+server_wide_modules=web,base,muk_session_store

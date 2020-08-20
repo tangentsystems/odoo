@@ -7,20 +7,22 @@ from datetime import date, timedelta
 class TangentAccountReport(models.AbstractModel):
     _inherit = 'account.report'
 
-    def _apply_date_filter(self, options):
-        if options.get('date') and options['date'].get('filter'):
-            options_filter = options['date']['filter']
+    @api.model
+    def _init_filter_date(self, options, previous_options=None):
+        if previous_options and previous_options.get('date') and previous_options['date'].get('filter'):
+            options_filter = previous_options['date']['filter']
             if options_filter == 'last_week':
                 sun, sat = self._get_last_week_days()
-                options['date']['date_from'] = fields.Date.to_string(sun)
-                options['date']['date_to'] = fields.Date.to_string(sat)
-                options['date']['filter'] = 'custom'
+                previous_options['date']['date_from'] = fields.Date.to_string(sun)
+                previous_options['date']['date_to'] = fields.Date.to_string(sat)
+                previous_options['date']['filter'] = 'custom'
             if options_filter == 'end_of_last_week':
                 _, sat = self._get_last_week_days()
-                options['date']['date'] = fields.Date.to_string(sat)
-                options['date']['filter'] = 'custom'
+                previous_options['date']['date_from'] = fields.Date.to_string(date(sat.year, sat.month, 1))
+                previous_options['date']['date_to'] = fields.Date.to_string(sat)
+                previous_options['date']['filter'] = 'custom'
 
-        super(TangentAccountReport, self)._apply_date_filter(options)
+        super(TangentAccountReport, self)._init_filter_date(options, previous_options)
 
     def _get_last_week_days(self):
         today = date.today()
