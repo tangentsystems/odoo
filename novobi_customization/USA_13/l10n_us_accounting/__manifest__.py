@@ -14,6 +14,7 @@
         'contacts',
         'account_batch_payment',
         'l10n_us_check_printing',
+        'account_followup',
     ],
 
     'data': [
