@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 {
     'name': 'Billable Expense - assigned to customer from Purchase Order',
@@ -8,7 +7,7 @@
     'website': 'http://www.odoo-accounting.com',
     'category': 'Accounting',
     'version': '1.0',
-    'license': 'OPL-1',
+    'license': 'LGPL-3',
     'depends': [
         'purchase',
         'account_billable_expense',

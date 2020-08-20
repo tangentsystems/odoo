@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import xlsxwriter
 import re
@@ -66,7 +65,6 @@ class BudgetEntry(models.AbstractModel):
 
         return lines
 
-    @api.multi
     def _get_dict_lines(self, children_lines, column_number, budget_wizard, index_dict, import_data,
                         financial_report, currency_table, daterange_list, is_profit_budget):
         final_result_table = []
@@ -196,7 +194,6 @@ class BudgetEntry(models.AbstractModel):
 
         return final_result_table, budget_position_list, result_actual_data
 
-    @api.multi
     def get_html(self, options, line_id=None, additional_context=None):
         if additional_context is None:
             additional_context = {}
@@ -240,14 +237,14 @@ class BudgetEntry(models.AbstractModel):
         additional_context.update({
             'budget_entry': True,
             'crossovered_budget': budget,
-            'currency_id': self.env.user.company_id.currency_id
+            'currency_id': self.env.company.currency_id
 
         })
 
         return super(BudgetEntry, self).get_html(options, line_id=line_id,
                                                  additional_context=additional_context)
 
-    def get_xlsx(self, options, response):
+    def get_xlsx(self, options):
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         sheet = workbook.add_worksheet('Sheet 1')
@@ -334,8 +331,10 @@ class BudgetEntry(models.AbstractModel):
 
         workbook.close()
         output.seek(0)
-        response.stream.write(output.read())
+        generated_file = output.read()
         output.close()
+
+        return generated_file
 
     # HELPER FUNCTION
     def _get_daterange_list(self, date_from, date_to):

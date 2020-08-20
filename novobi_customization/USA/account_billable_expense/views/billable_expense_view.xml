@@ -1,10 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="billable_expenses_tree" model="ir.ui.view">
         <field name="name">billable_expenses_tree</field>
         <field name="model">billable.expenses</field>
         <field name="arch" type="xml">
-            <tree string="__noStickyHeader__"> <!-- Special treat for this element to disable sticky header -->
+            <tree>
                 <field name="currency_id" invisible="1" />
                 <field name="invoice_currency_id" invisible="1" />
                 <field name="invoice_line_id" invisible="1"/>
@@ -26,7 +25,7 @@
                     <field name="currency_id" invisible="1"/>
                     <field name="description" readonly="1"/>
                     <field name="amount" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                    <field name="customer_id" domain="[('customer', '=', 1)]"/>
+                    <field name="customer_id" context="{'res_partner_search_mode': 'customer'}"/>
                 </sheet>
             </form>
         </field>

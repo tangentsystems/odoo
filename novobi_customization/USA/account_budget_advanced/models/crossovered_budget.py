@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import models, api, _, fields
 
@@ -11,7 +10,6 @@ class CrossoveredBudget(models.Model):
     analytic_account_id = fields.Many2one('account.analytic.account', 'Analytic Account')
     budget_type = fields.Selection([('profit', 'Profit and Loss'), ('balance', 'Balance Sheet')], default='profit')
 
-    @api.multi
     def update_budget_lines(self, dict):
         self.ensure_one()
 

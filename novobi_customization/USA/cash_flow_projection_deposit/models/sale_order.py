@@ -12,10 +12,10 @@ import datetime
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
-    
+
     residual_deposit_amount = fields.Float(string='Residual Deposit Amount', default=0, required=True,
                                            compute='_compute_residual_deposit_amount', store=True)
-    
+
     @api.depends('deposit_total', 'deposit_ids', 'deposit_ids.move_line_ids.amount_residual')
     def _compute_residual_deposit_amount(self):
         orders = self._filter_latest_order()
@@ -26,8 +26,7 @@ class SaleOrder(models.Model):
                                      deposit_ids]
             order.residual_deposit_amount = sum(-line.amount_residual for line in deposit_move_line_ids)
     
-    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_status', 'order_line.invoice_lines',
-                 'residual_deposit_amount')
+    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.move_id.state', 'residual_deposit_amount')
     def _get_remaining_so_amount(self):
         """
         Calculate the remaining amount of Sale Order
@@ -42,14 +41,11 @@ class SaleOrder(models.Model):
             order.update({
                 'amount_so_remaining': order.amount_total - total_invoice_amount - order.residual_deposit_amount,
             })
-            
-    @api.multi
+    
     def _filter_latest_order(self):
         from_date = datetime.datetime.today() - relativedelta(months=2)
         if len(self) > 1:
-            orders = self.filtered(
-                lambda o: o.state == 'sale' and ((o.confirmation_date and o.confirmation_date > from_date) or (
-                        not o.confirmation_date and o.date_order and o.date_order > from_date)))
+            orders = self.filtered(lambda o: o.state == 'sale' and o.date_order and o.date_order > from_date)
         else:
             orders = self
         return orders

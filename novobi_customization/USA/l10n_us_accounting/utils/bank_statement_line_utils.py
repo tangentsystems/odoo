@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 
 import re
@@ -16,7 +15,7 @@ def is_check_statement(description):
     :param description:
     :return:
     """
-    return check_expression.fullmatch(description) is not None
+    return description and check_expression.fullmatch(description) is not None
 
 
 def extract_check_number(description):

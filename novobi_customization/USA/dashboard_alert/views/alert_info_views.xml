@@ -6,21 +6,6 @@
         <field name="arch" type="xml">
             <form>
                 <sheet>
-                    <div class="oe_button_box" name="button_box">
-                        <button name="toggle_self_active"
-                                type="object" class="oe_stat_button"
-                                icon="fa-archive"
-                                attrs="{'invisible': [('is_creator', '=', 'is_not_recipient')]}">
-                            <field name="self_active"
-                                   widget="boolean_button"
-                                   options='{"terminology": {
-                                    "string_true": "Subscribed",
-                                    "hover_true": "Unsubscribe",
-                                    "string_false": "Unsubscribed",
-                                    "hover_false": "Subscribe"
-                                }}'/>
-                        </button>
-                    </div>
                     <center>
                         <group>
                             <group>
@@ -83,9 +68,8 @@
             model="ir.actions.act_window">
         <field name="name">alert.info.popup.form.action</field>
         <field name="res_model">alert.info</field>
-        <field name="view_type">form</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="dashboard_alert.alert_info_popup_form"/>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="dashboard_alert.alert_info_popup_tree"/>
         <field name="target">new</field>
     </record>
 </odoo>

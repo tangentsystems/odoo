@@ -1,153 +1,214 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 from odoo import api, fields, models, _
-from odoo.exceptions import Warning, UserError
 from odoo.tools.float_utils import float_compare, float_is_zero
+from datetime import date
+from dateutil import relativedelta
+from itertools import zip_longest
+from collections import deque
+import operator as py_operator
+import json
+import locale
 
-from ..models.model_const import ACCOUNT_BANK_STATEMENT_LINE_MAPPING, ACCOUNT_VOUCHER
+
+OPERATORS = {'<': py_operator.lt, '>': py_operator.gt, '<=': py_operator.le, '>=': py_operator.ge, '=': py_operator.eq,
+             '!=': py_operator.ne}
 
 
 class AccountMoveUSA(models.Model):
     _name = 'account.move'
-    _inherit = ['account.move', 'account.caching.mixin.usa', 'mail.thread', 'mail.activity.mixin']
+    _inherit = ['account.move', 'mail.thread', 'mail.activity.mixin']
 
-    has_been_reviewed = fields.Boolean(compute='_compute_has_been_reviewed')
+    # Override
     state = fields.Selection(track_visibility='onchange')
 
-    @api.multi
+    # New fields
+    has_been_reviewed = fields.Boolean(string='Have been reviewed?', compute='_compute_has_been_reviewed')
+    ar_in_charge = fields.Many2one(string='AR In Charge', comodel_name='res.users')
+    aging_days = fields.Integer(string='Aging Days', compute='_compute_aging_days', search='_search_aging_days',
+                                store=True)
+    fiscal_quarter = fields.Char(string='Fiscal Quarter', compute='_compute_fiscal_quarter',
+                                 search='_search_fiscal_quarter')
+    last_fiscal_quarter = fields.Char(string='Last Fiscal Quarter', compute='_compute_last_fiscal_quarter',
+                                      search='_search_last_fiscal_quarter')
+    fiscal_year = fields.Date(string='Fiscal Year', compute='_compute_fiscal_year', search='_search_fiscal_year')
+    last_fiscal_year = fields.Date(string='Last Fiscal Year', compute='_compute_last_fiscal_year',
+                                   search='_search_last_fiscal_year')
+    is_write_off = fields.Boolean(string='Is Write Off', default=False)
+
+    # Onchange
+    @api.onchange('partner_id')
+    def _onchange_select_customer(self):
+        self.ar_in_charge = self.partner_id.ar_in_charge
+
+    # Compute/Inverse/Search
     def _compute_has_been_reviewed(self):
         for record in self:
-            reviewed_transactions = self.env['account.bank.statement.line'].search([
-                ('status', '=', 'confirm'),
-                ('applied_aml_ids', 'in', record.line_ids.ids)])
+            statement_ids = record.line_ids.mapped('statement_line_id')
+            record.has_been_reviewed = True if statement_ids else False
 
-            # if it's reconciled, show error instead of confirmation
-            reconciled_move_lines = record.line_ids.filtered(lambda x: x.bank_reconciled)
-
-            if reviewed_transactions and not reconciled_move_lines:
-                record.has_been_reviewed = True
-
-    @api.multi
-    def _reconcile_warning(self):
-        # only check if cancel from button in JE's form
-        if self.env.context.get('reconciled_warning', False):
-            for record in self:
-                reconciled_move_lines = record.line_ids.filtered(lambda x: x.bank_reconciled)
-                if reconciled_move_lines:
-                    raise UserError(_('This transaction was reconciled. Please unreconcile it first.'))
-
-    @api.multi
-    def _match_warning(self):
-        # only check if cancel from button in JE's form
-        if self.env.context.get('reconciled_warning', False):
-            for record in self:
-                matched_lines = record.line_ids.filtered(lambda x: x.matched_debit_ids or x.matched_credit_ids or x.full_reconcile_id)
-                if matched_lines:
-                    raise UserError(_('This journal entry has already been matched with other transactions. Please unmatch it first.'))
-
-
-    @api.multi
-    def post(self, invoice=False):
-        self._post_validate()
-        tracking = set()
-        for move in self:
-            move.line_ids.create_analytic_lines()
-            if move.name == '/':
-                new_name = False
-                journal = move.journal_id
-
-                if invoice and invoice.move_name and invoice.move_name != '/':
-                    new_name = invoice.move_name
-                else:
-                    if journal.sequence_id:
-                        # If invoice is actually refund and journal has a refund_sequence then use
-                        # that one or use the regular one
-                        sequence = journal.sequence_id
-                        if invoice and invoice.type in ['out_refund', 'in_refund']:
-                            if invoice.is_write_off:
-                                sequence = journal.write_off_sequence_id
-                            elif journal.refund_sequence:
-                                if not journal.refund_sequence_id:
-                                    raise UserError('Please define a sequence for the credit notes')
-                                sequence = journal.refund_sequence_id
-
-                        new_name = sequence.with_context(ir_sequence_date=move.date).next_by_id()
-                    else:
-                        raise UserError('Please define a sequence on the journal.')
-
-                if new_name:
-                    move.name = new_name
-
-            journal_name = move.journal_id.name
-            tracking = move._trigger_apply_matching_journal(journal_name, tracking)
-            # if journal_name not in tracking:
-            #     # Enable trigger to run finding possible match
-            #     self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            #     self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-            #
-            #     tracking.add(journal_name)
-
-            if move == move.company_id.account_opening_move_id and not move.company_id.account_bank_reconciliation_start:
-                # For opening moves, we set the reconciliation date threshold
-                # to the move's date if it wasn't already set (we don't want
-                # to have to reconcile all the older payments -made before
-                # installing Accounting- with bank statements)
-                move.company_id.account_bank_reconciliation_start = move.date
-
-        return self.write({'state': 'posted'})
-
-    @api.multi
-    def button_cancel(self):
-        # Show error when JE is already matched with other transactions
-        self._match_warning()
-
-        # Show error when JE is already reconciled
-        self._reconcile_warning()
-
-        result = super(AccountMoveUSA, self).button_cancel()
-
+    def _compute_fiscal_quarter(self):
         for record in self:
-            journal_name = record._get_journal_name()
-            # Enable trigger to run finding possible match
-            record._trigger_apply_matching_journal(journal_name)
-            # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
+            record.fiscal_quarter = None
 
-        # uncheck aml when cancel
-        self.mapped('line_ids').write({'temporary_reconciled': False})
+    def _compute_last_fiscal_quarter(self):
+        for record in self:
+            record.last_fiscal_quarter = None
 
-        # Trigger function to update Changes in reconciliation report
-        reconciliation_line_ids = self.env['account.bank.reconciliation.data.line'].search([('aml_id',
-                                                                                             'in', self.line_ids.ids)])
-        reconciliation_line_ids.compute_change_status()
-        return result
+    def _compute_fiscal_year(self):
+        for record in self:
+            record.fiscal_year = None
 
-    def _get_journal_name(self):
-        account_voucher = self.env[ACCOUNT_VOUCHER].search([('move_id', '=', self.id)])
-        return account_voucher.payment_journal_id.name if account_voucher else self.journal_id.name
+    def _compute_last_fiscal_year(self):
+        for record in self:
+            record.last_fiscal_year = None
 
-    @api.multi
-    def reverse_moves(self, date=None, journal_id=None, auto=False):
-        # Show error when JE is already reconciled
-        # bypass if undo last reconciliation
-        if not self.env.context.get('discrepancy_entry', False):
-            self.with_context(reconciled_warning = True)._reconcile_warning()
+    def _search_fiscal_year(self, operator, value):
+        fiscal_year_date = self._get_fiscal_year_date()
 
-        result = super(AccountMoveUSA, self).reverse_moves(date, journal_id, auto)
+        return ['&', ('invoice_date', '>=', str(fiscal_year_date + relativedelta.relativedelta(years=-1, days=1))),
+                ('invoice_date', '<=', str(fiscal_year_date))]
 
-        tracking = set()
-        for move in self:
-            journal_name = move.journal_id.name
-            tracking = move._trigger_apply_matching_journal(journal_name, tracking)
-            # if journal_name not in tracking:
-            #     # Enable trigger to run finding possible match
-            #     self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            #     self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-            #
-            #     tracking.add(journal_name)
+    def _get_fiscal_year_date(self):
+        company_id = self.env.company
+        last_day = str(company_id.fiscalyear_last_day)
+        last_month = str(company_id.fiscalyear_last_month)
+        return fields.Date.from_string('-'.join((str(date.today().year), last_month, last_day)))
 
-        return result
+    def _search_fiscal_quarter(self, operator, value):
+        start_quarter = self._calculate_start_quarter()
+        end_quarter = start_quarter + relativedelta.relativedelta(months=3, days=-1)
+
+        return ['&', ('invoice_date', '>=', str(start_quarter)), ('invoice_date', '<=', str(end_quarter))]
+
+    def _calculate_start_quarter(self):
+        fiscal_year_date = self._get_fiscal_year_date()
+
+        months = deque(range(1, 13))
+        months.rotate(12 - fiscal_year_date.month)
+        new_months = list(months)
+
+        current_month = date.today().month
+
+        quarter = None
+        is_decrease_year = False
+        index = 0
+        for month_group in zip_longest(*[iter(new_months)] * 3):
+            for month in month_group:
+                if current_month == month:
+                    quarter = index // 3 + 1
+                    if month_group[0] > month_group[-1] and current_month == month_group[-1]:
+                        is_decrease_year = True
+                    break
+                index += 1
+            if quarter:
+                break
+
+        start_month = str(new_months[::3][quarter - 1])
+        start_year = str(fiscal_year_date.year - 1) if is_decrease_year else str(fiscal_year_date.year)
+        return fields.Date.from_string('-'.join((start_year, start_month, '1')))
+
+    def _search_last_fiscal_quarter(self, operator, value):
+        start_quarter = self._calculate_start_quarter()
+        last_quarter_start = start_quarter + relativedelta.relativedelta(months=-3)
+        last_quarter_end = start_quarter + relativedelta.relativedelta(days=-1)
+
+        return ['&', ('invoice_date', '>=', str(last_quarter_start)), ('invoice_date', '<=', str(last_quarter_end))]
+
+    def _search_last_fiscal_year(self, operator, value):
+        fiscal_year_date = self._get_fiscal_year_date()
+        last_year_start = fiscal_year_date + relativedelta.relativedelta(years=-2, days=1)
+        last_year_end = fiscal_year_date + relativedelta.relativedelta(years=-1)
+
+        return ['&', ('invoice_date', '>=', str(last_year_start)), ('invoice_date', '<=', str(last_year_end))]
+
+    # Use Odoo OOTB instead.
+    # def _recompute_invoice_due_date(self):
+    #     """
+    #     By default, Odoo gets the last day when invoice/bill is paid completely.
+    #     But if the invoice/bill has multiple due date (e.g.: payment terms is 30% immediately, the remaining at the end
+    #     of following month), we should take the earliest due date (that hasn't been fulfilled) to calculate aging days
+    #     of the whole invoice/bill.
+    #     """
+    #     today = fields.Date.context_today(self)
+    #     for record in self:
+    #         aml_ids = record.line_ids \
+    #             .filtered(lambda line: line.account_id.user_type_id.type in ('receivable', 'payable') and line.amount_residual > 0) \
+    #             .sorted(lambda line: line.date_maturity or today)
+    #         if aml_ids:
+    #             record.invoice_date_due = aml_ids[0].date_maturity
+    #
+    # def _compute_amount(self):
+    #     # Recompute invoice_date_due after changing Amount Residual...
+    #     super(AccountMoveUSA, self)._compute_amount()
+    #     self._recompute_invoice_due_date()
+    #
+    # def _recompute_payment_terms_lines(self):
+    #     # Recompute invoice_date_due after changing Payment Term,...
+    #     super(AccountMoveUSA, self)._recompute_payment_terms_lines()
+    #     self._recompute_invoice_due_date()
+
+    @api.depends('invoice_date_due', 'state', 'invoice_payment_state')
+    def _compute_aging_days(self):
+        today = fields.Date.today()
+        for record in self:
+            aging_days = 0
+            if record.state == 'posted' and record.invoice_payment_state == 'not_paid' and record.invoice_date_due:
+                aging_days = (today - record.invoice_date_due).days
+            record.aging_days = max(aging_days, 0)
+
+    @api.model
+    def _search_aging_days(self, operator, value):
+        ids = [invoice.id for invoice in self.search([]) if OPERATORS[operator](invoice.aging_days, value)]
+        return [('id', 'in', ids)]
+
+    # Others
+    def _compute_payments_widget_to_reconcile_info(self):
+        super(AccountMoveUSA, self)._compute_payments_widget_to_reconcile_info()
+        try:
+            outstanding_credits_debits = json.loads(self.invoice_outstanding_credits_debits_widget)
+            content = outstanding_credits_debits['content']
+            content_dict = {line['id']: line for line in content}
+
+            for line in self.env['account.move.line'].browse(content_dict.keys()):
+                content_dict[line['id']].update({
+                    'payment_id': line.payment_id.id,
+                    'move_id': line.move_id.id,
+                    'journal_name': line.move_id.name or line.ref,
+                })
+            outstanding_credits_debits['type'] = self.type
+
+            self.invoice_outstanding_credits_debits_widget = json.dumps(outstanding_credits_debits)
+        except Exception as _:
+            pass
+        return True
+
+    def get_payment_move_line_ids(self):
+        """
+        account_invoice.payment_move_line_ids has been removed. This function is to retrieve it.
+        :return: payment_move_line_ids
+        """
+        self.ensure_one()
+        line_ids = self.line_ids.filtered(lambda line: line.account_id.user_type_id.type in ('receivable', 'payable'))
+        partial_ids = line_ids.mapped('matched_debit_ids') + line_ids.mapped('matched_credit_ids')
+        payment_move_line_ids = self.env['account.move.line']
+
+        for partial in partial_ids:
+            counterpart_lines = partial.debit_move_id + partial.credit_move_id
+            payment_move_line_ids |= counterpart_lines.filtered(lambda line: line not in self.line_ids)
+
+        return payment_move_line_ids
+
+    def _get_sequence(self):
+        """
+        Override from Odoo.
+        Get sequence for account.move in case that it's write-off
+        :return: write_off_sequence_id if is_write_off else super()
+        """
+        journal = self.journal_id
+        if self.type in ['out_refund', 'in_refund'] and self.is_write_off:
+            return journal.write_off_sequence_id
+        return super(AccountMoveUSA, self)._get_sequence()
 
     def _log_message_move(self, values):
         if 'line_ids' in values:
@@ -158,120 +219,346 @@ class AccountMoveUSA(models.Model):
                 msg += "</ul>"
                 record.message_post(body=msg, message_type="comment", subtype="mail.mt_note")
 
-    @api.multi
+    @api.model
+    def _cron_aging_days(self):
+        self.search([])._compute_aging_days()
+
+    def create_refund(self, write_off_amount, company_currency_id, account_id, invoice_date=None, description=None,
+                      journal_id=None):
+        new_invoices = self.browse()
+        for invoice in self:
+            # Copy from Odoo
+            reverse_type_map = {
+                'entry': 'entry',
+                'out_invoice': 'out_refund',
+                'out_refund': 'entry',
+                'in_invoice': 'in_refund',
+                'in_refund': 'entry',
+                'out_receipt': 'entry',
+                'in_receipt': 'entry',
+            }
+            reconcile_account_id = invoice.partner_id.property_account_receivable_id \
+                if invoice.is_sale_document(include_receipts=True) else invoice.partner_id.property_account_payable_id
+            reverse_type = reverse_type_map[invoice.type]
+
+            default_values = {
+                'ref': description,
+                'date': invoice_date,
+                'invoice_date': invoice_date,
+                'invoice_date_due': invoice_date,
+                'journal_id': journal_id,
+                'invoice_payment_term_id': None,
+                'type': reverse_type,
+                'invoice_origin': invoice.name,
+                'state': 'draft'
+            }
+            values = invoice._reverse_move_vals(default_values, False)
+
+            line_ids = values.pop('line_ids')
+            if 'invoice_line_ids' in values:
+                values.pop('invoice_line_ids')
+            new_invoice_line_ids = self._build_invoice_line_item(abs(write_off_amount), account_id.id, line_ids, reconcile_account_id, reverse_type)
+
+            # Update value from Write Off An Account form
+            # Update is_write_off flag
+            if invoice.type == 'out_invoice':
+                values['is_write_off'] = True
+            values['fiscal_position_id'] = False
+
+            refund_invoice = self.create(values)
+            refund_invoice.write({'invoice_line_ids': new_invoice_line_ids})
+
+            # Create message post
+            message = 'This write off was created from ' \
+                      '<a href=# data-oe-model=account.move data-oe-id={}>{}</a>'.format(invoice.id, invoice.name)
+            refund_invoice.message_post(body=message)
+
+            new_invoices += refund_invoice
+        return new_invoices
+
+    @staticmethod
+    def _build_invoice_line_item(write_off_amount, account_id, line_ids, reconcile_account_id, reverse_type):
+        new_invoice_line_ids = {}
+        if line_ids:
+            debit_wo, credit_wo = (0, write_off_amount) if reverse_type == 'in_refund' else (write_off_amount, 0)
+            # We write in invoice_line_ids, so all values must be positive
+            # if reverse_type == 'in_refund':
+            #     write_off_amount *= -1
+
+            new_invoice_line_ids = {
+                'name': 'Write Off',
+                'display_name': 'Write Off',
+                'product_uom_id': False,
+                'account_id': account_id,
+                'quantity': 1.0,
+                'price_unit': write_off_amount,
+                'product_id': False,
+                'discount': 0.0,
+                'debit': debit_wo,
+                'credit': credit_wo
+            }
+        return [(0, 0, new_invoice_line_ids)]
+
+    @api.model
+    def search_read(self, domain=None, fields=None, offset=0, limit=None, order=None):
+        for index, item in reversed(list(enumerate(domain or []))):
+            if 'amount_total_signed' in item and type(item[2]) == str:
+                amount = item[2]
+                locale.setlocale(locale.LC_ALL, '{}.UTF-8'.format(self.env.lang))
+                try:
+                    item[2] = locale.atof(amount.replace(self.env.company.currency_id.symbol, ''))
+                except ValueError:
+                    # Remove data and operator
+                    del domain[index]
+                    domain.remove('|')
+                break
+        return super(AccountMoveUSA, self).search_read(domain, fields, offset, limit, order)
+
+    def action_delete(self):
+        super(AccountMoveUSA, self).unlink()
+        return {'type': 'ir.actions.client', 'tag': 'history_back'}
+
+    def button_draft(self):
+        aml_ids = self.mapped('line_ids')
+        # Undo reconciled on each journal items
+        aml_ids.write({'bank_reconciled': False})
+
+        # Trigger function to update Changes in reconciliation report.
+        reconciliation_line_ids = self.env['account.bank.reconciliation.data.line'].search(
+            [('aml_id', 'in', aml_ids.ids)])
+        reconciliation_line_ids.compute_change_status()
+
+        super(AccountMoveUSA, self).button_draft()
+
+    def button_draft_usa(self):
+        self.ensure_one()
+        action = self.env.ref('l10n_us_accounting.action_view_button_set_to_draft_message').read()[0]
+        action['context'] = isinstance(action.get('context', {}), dict) or {}
+        action['context']['default_move_id'] = self.id
+        return action
+
+    def open_form(self):
+        # TODO: wrong action here
+        self.ensure_one()
+        action = False
+        if self.is_write_off:
+            action = self.env.ref('l10n_us_accounting.action_invoice_write_off_usa').read()[0]
+            action['views'] = [(self.env.ref('l10n_us_accounting.write_off_form_usa').id, 'form')]
+        else:
+            if self.type == 'out_refund':
+                action = self.env.ref('account.action_move_out_refund_type').read()[0]
+                action['views'] = [(self.env.ref('l10n_us_accounting.credit_note_form_usa').id, 'form')]
+            elif self.type == 'in_refund':
+                action = self.env.ref('account.action_move_in_refund_type').read()[0]
+                action['views'] = [(self.env.ref('l10n_us_accounting.credit_note_supplier_form_usa').id, 'form')]
+            elif self.type == 'out_invoice':
+                action = self.env.ref('account.action_move_out_invoice_type').read()[0]
+                action['views'] = [(self.env.ref('l10n_us_accounting.invoice_form_usa').id, 'form')]
+            elif self.type == 'in_invoice':
+                action = self.env.ref('account.action_move_in_invoice_type').read()[0]
+                action['views'] = [(self.env.ref('l10n_us_accounting.invoice_supplier_form_usa').id, 'form')]
+        return action
+
+    def name_get(self):
+        TYPES = {
+            'out_invoice': 'Invoice',
+            'in_invoice': 'Vendor Bill',
+            'out_refund': 'Credit Note',
+            'in_refund': 'Vendor Credit note',
+            'write_off': 'Write-off',
+        }
+        result = []
+        append_result = result.append
+        for inv in self:
+            type = 'write_off' if inv.is_write_off else inv.type
+            append_result((inv.id, '{} {}'.format(inv.name or TYPES[type], inv.ref or '')))
+        return result
+
+    def _get_printed_report_name(self):
+        self.ensure_one()
+
+        if self.type == 'out_refund' and self.is_write_off:
+            return self.state == 'draft' and _('Writeoff') or \
+                   self.state in ('open', 'paid') and _('Writeoff - {}'.format(self.number))
+        else:
+            return super(AccountMoveUSA, self)._get_printed_report_name()
+
+    def _get_reconciled_info_JSON_values(self):
+        # Override Odoo's. Add partial_id, type and is_write_off to JSON values.
+        self.ensure_one()
+        foreign_currency = self.currency_id if self.currency_id != self.company_id.currency_id else False
+
+        reconciled_vals = []
+        pay_term_line_ids = self.line_ids.filtered(
+            lambda line: line.account_id.user_type_id.type in ('receivable', 'payable'))
+        partials = pay_term_line_ids.mapped('matched_debit_ids') + pay_term_line_ids.mapped('matched_credit_ids')
+        for partial in partials:
+            counterpart_lines = partial.debit_move_id + partial.credit_move_id
+            counterpart_line = counterpart_lines.filtered(lambda line: line not in self.line_ids)
+
+            if foreign_currency and partial.currency_id == foreign_currency:
+                amount = partial.amount_currency
+            else:
+                amount = partial.company_currency_id._convert(partial.amount, self.currency_id, self.company_id,
+                                                              self.date)
+
+            if float_is_zero(amount, precision_rounding=self.currency_id.rounding):
+                continue
+
+            ref = counterpart_line.move_id.name
+            if counterpart_line.move_id.ref:
+                ref += ' (' + counterpart_line.move_id.ref + ')'
+
+            reconciled_vals.append({
+                # ============= Add here
+                'type': self.type,
+                'is_write_off': counterpart_line.move_id.is_write_off,
+                'partial_id': partial.id,
+                # =============
+                'name': counterpart_line.name,
+                'journal_name': counterpart_line.journal_id.name,
+                'amount': amount,
+                'currency': self.currency_id.symbol,
+                'digits': [69, self.currency_id.decimal_places],
+                'position': self.currency_id.position,
+                'date': counterpart_line.date,
+                'payment_id': counterpart_line.id,
+                'account_payment_id': counterpart_line.payment_id.id,
+                'payment_method_name': counterpart_line.payment_id.payment_method_id.name if counterpart_line.journal_id.type == 'bank' else None,
+                'move_id': counterpart_line.move_id.id,
+                'ref': ref,
+            })
+        return reconciled_vals
+
+    # CRUD
     def write(self, values):
         res = super().write(values)
         self._log_message_move(values)
         return res
 
-    @api.model
-    def create(self, values):
-        res = super().create(values)
-        res._log_message_move(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        # TODO: do we need to update write_off value here?
+        # field_name = 'is_write_off'
+        # values[field_name] = self.env.context.get(field_name, False)
+        res = super().create(vals_list)
+        res._log_message_move(vals_list)
+
+        # Update AR in charge
+        for record in res:
+            if not record.ar_in_charge and record.partner_id.ar_in_charge:
+                record.ar_in_charge = record.partner_id.ar_in_charge
         return res
 
 
 class AccountMoveLineUSA(models.Model):
-    _name = 'account.move.line'
-    _inherit = ['account.move.line', 'account.caching.mixin.usa']
+    _inherit = 'account.move.line'
 
-    temporary_reconciled = fields.Boolean(copy=False)
-    bank_reconciled = fields.Boolean(copy=False)
-    is_fund_line = fields.Boolean(copy=False)
+    # Technical fields
+    temporary_reconciled = fields.Boolean(default=False, copy=False)
+    bank_reconciled = fields.Boolean(string='Have been reconciled?', default=False, copy=False)
+    should_be_reconciled = fields.Boolean(compute='_compute_should_be_reconciled', store=True, copy=False,
+                                          help='Check if this account_move_line should be in reconciliation screen.')
+    is_fund_line = fields.Boolean()
 
-    @api.multi
+    @api.depends('journal_id.default_credit_account_id', 'journal_id.default_debit_account_id', 'account_id')
+    def _compute_should_be_reconciled(self):
+        for record in self:
+            accounts = [record.journal_id.default_credit_account_id, record.journal_id.default_debit_account_id]
+            record.should_be_reconciled = record.account_id in accounts
+
     def update_temporary_reconciled(self, ids, checked):
+        # Click on checkbox or select/deselect all on Reconciliation Screen.
         return self.browse(ids).write({'temporary_reconciled': checked})
 
-    @api.multi
     def mark_bank_reconciled(self):
+        """
+        Apply reconcile on Reconciliation Screen.
+        - Set bank_reconciled = True for this account_move_line.
+        - Check payment. If all Bank lines in this payment have been reconciled, mark it reconciled.
+        - Check BSL. If all Journal Items in this BSL have been reconciled, mark it reconciled.
+        """
         self.write({'bank_reconciled': True})
-        payment_ids = self.filtered(lambda aml: aml.payment_id).mapped('payment_id')
-        payment_ids.write({'state': 'reconciled'})
 
-    @api.multi
+        for payment in self.mapped('payment_id'):
+            if False not in payment.move_line_ids.filtered('should_be_reconciled').mapped('bank_reconciled'):
+                payment.state = 'reconciled'
+
+        for statement in self.mapped('statement_line_id'):
+            if False not in statement.journal_entry_ids.filtered('should_be_reconciled').mapped('bank_reconciled'):
+                statement.status = 'reconciled'
+
+        self.mapped('statement_line_id')\
+            .filtered(lambda r: False not in r.journal_entry_ids.mapped('bank_reconciled'))\
+            .write({'status': 'reconciled'})
+
     def undo_bank_reconciled(self):
+        """
+        Undo last reconciliation.
+        - Set bank_reconciled = False for this account_move_line.
+        - Set state of its payment to 'posted'.
+        - Set status of BSL to 'confirm'.
+        """
         self.write({'bank_reconciled': False})
-        payment_ids = self.filtered(lambda aml: aml.payment_id).mapped('payment_id')
-        payment_ids.write({'state': 'posted'})
 
-    @api.model
-    def create(self, values):
-        result = super(AccountMoveLineUSA, self).create(values)
+        self.mapped('payment_id').write({'state': 'posted'})
 
-        journal_name = result.journal_id.name
-        result._trigger_apply_matching_journal(journal_name)
-        # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-        # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-
-        return result
-
-    @api.multi
-    def unlink(self):
-        # If we delete the journal entry, we must delete a bank statement line mapping manually to call computed fields
-        self.env[ACCOUNT_BANK_STATEMENT_LINE_MAPPING].search([('journal_entry_id', 'in', self.ids)]).sudo().unlink()
-
-        tracking = set()
-        for record in self:
-            journal_name = record.journal_id.name
-            tracking = record._trigger_apply_matching_journal(journal_name, tracking)
-            # if journal_name in tracking:
-            #     continue
-            #
-            # self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            # self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-            #
-            # tracking.add(journal_name)
-
-        result = super(AccountMoveLineUSA, self).unlink()
-
-        return result
+        self.mapped('statement_line_id')\
+            .filtered(lambda x: x.status == 'reconciled')\
+            .write({'status': 'confirm'})
 
     # get partial reconcile moves to unlink
-    def _get_rec_move_ids(self, part_rec_ids, invoice_id, side):
+    def _get_rec_move_ids(self, part_rec_ids, invoice_id):
         rec_move_ids = self.env['account.partial.reconcile']
-        aml_to_keep = invoice_id.move_id.line_ids | invoice_id.move_id.line_ids.mapped('full_reconcile_id.exchange_move_id.line_ids')
-        if side == 'debit':
-            for rec in part_rec_ids:
-                if rec.debit_move_id.id in aml_to_keep.ids:
-                    rec_move_ids += rec
-        else:
-            for rec in part_rec_ids:
-                if rec.credit_move_id.id in aml_to_keep.ids:
-                    rec_move_ids += rec
+        aml_to_keep = (invoice_id.line_ids | invoice_id.line_ids.mapped('full_reconcile_id.exchange_move_id.line_ids')).ids
+
+        for rec in part_rec_ids:
+            if rec.debit_move_id.id in aml_to_keep or rec.credit_move_id.id in aml_to_keep:
+                rec_move_ids += rec
+
         return rec_move_ids
 
-    @api.multi
     def remove_move_reconcile(self):
-        # override Odoo's function, change original un-reconcile
-        if not self:
-            return True
-        rec_move_ids = self.env['account.partial.reconcile']
-        for account_move_line in self:
-            # account_move_line.move_id._check_lock_date()
-            id = self.env.context.get('invoice_id', False)
-            if id:  # un-reconcile in Invoice form
-                invoice = self.env['account.invoice'].browse(id)
-                if account_move_line in invoice.payment_move_line_ids:
-                    account_move_line.payment_id.write({'invoice_ids': [(3, invoice.id, None)]})
+        """
+        Handle 3 basic cases:
+        1. Set to draft 1 payment.
+            - Remove all links between this payment and other transactions (super())
+            - Delete all usa_payment_invoice lines inside this payment.
+        2. Set to draft invoice/bill/...:
+            - Remove all links between this invoice/bill and other payments that paid for it. (super())
+            - Delete all usa_payment_invoice lines that paid for this invoice/bill
+        3. Use Odoo's widget to remove 1 partial:
+            - Update usa_payment_invoice line (decrease amount or remove line) that paid for it.
+            - Delete this partial.
+        """
+        context = self.env.context
+        partial_id = context.get('partial_id', False)
+        if not partial_id:
+            payments = context.get('from_payment', False)
+            # Set to draft payment, remove all applied invoice in this payment.
+            if payments:
+                payments = self.env['account.payment'].browse(payments)
+                payments.mapped('open_invoice_ids').unlink()
+            else:
+                move_ids = self.mapped('move_id')
+                self.env['usa.payment.invoice'].search([('invoice_id', 'in', move_ids.ids)]).unlink()
+            super(AccountMoveLineUSA, self).remove_move_reconcile()
+        else:
+            # Remove one partial payment on invoice/bill form
+            partial_id = self.env['account.partial.reconcile'].browse([partial_id])
+            move_line_id = partial_id.debit_move_id + partial_id.credit_move_id
+            payment_id = move_line_id.mapped('payment_id')  # Expect 1 record.
+            usa_payment_invoice_id = payment_id.open_invoice_ids.filtered(lambda r: r.account_move_line_id in move_line_id)
+            amount_remove = partial_id.amount
+            # On invoice/bill form, we could add multiple partials using same payment. So when removing 1 partial,
+            # need to check to decide that we should remove the usa_payment_invoice line, or just decrease its amount.
+            if usa_payment_invoice_id.payment > amount_remove:
+                usa_payment_invoice_id.payment -= amount_remove
+            else:
+                usa_payment_invoice_id.unlink()
 
-                    # remove journal item to Payment
-                    if account_move_line.payment_id:
-                        remove_lines = account_move_line.payment_id.open_invoice_ids.filtered(lambda x:
-                                                                                             x.invoice_id.id == id)
-                        account_move_line.payment_id.write({'open_invoice_ids': [(3, line.id, None) for line in remove_lines]})
+            partial_id.unlink()
 
-                    rec_move_ids += self._get_rec_move_ids(account_move_line.matched_debit_ids, invoice, 'debit')
-                    rec_move_ids += self._get_rec_move_ids(account_move_line.matched_credit_ids, invoice, 'credit')
-            else:  # general case
-                account_move_line.payment_id.write({'invoice_ids': [(5,)], 'open_invoice_ids': [(5,)]})  # unlink
-                rec_move_ids += account_move_line.matched_debit_ids
-                rec_move_ids += account_move_line.matched_credit_ids
-
-        return rec_move_ids.unlink()
-
-    # override to reconcile partial amount
-    @api.multi
     def _reconcile_lines(self, debit_moves, credit_moves, field):
         """ This function loops on the 2 recordsets given as parameter as long as it
             can find a debit and a credit to reconcile together. It returns the recordset of the
@@ -286,7 +573,7 @@ class AccountMoveLineUSA(models.Model):
         partial_total = self.env.context.get('partial_amount', False)
         is_partial = True if partial_total else False
 
-        while (debit_moves and credit_moves):
+        while debit_moves and credit_moves:
             debit_move = debit_moves[0]
             credit_move = credit_moves[0]
             company_currency = debit_move.company_id.currency_id
@@ -310,7 +597,7 @@ class AccountMoveLineUSA(models.Model):
                 #     temp_amount_residual = self._convert_amount(debit_move.currency_id, company_currency, amount_reconcile)
                 #     temp_amount_residual_currency = amount_reconcile
 
-            #Remove from recordset the one(s) that will be totally reconciled
+            # Remove from recordset the one(s) that will be totally reconciled
             # For optimization purpose, the creation of the partial_reconcile are done at the end,
             # therefore during the process of reconciling several move lines, there are actually no recompute performed by the orm
             # and thus the amount_residual are not recomputed, hence we have to do it manually.
@@ -325,7 +612,7 @@ class AccountMoveLineUSA(models.Model):
             else:
                 credit_moves[0].amount_residual += temp_amount_residual
                 credit_moves[0].amount_residual_currency += temp_amount_residual_currency
-            #Check for the currency and amount_currency we can set
+            # Check for the currency and amount_currency we can set
             currency = False
             amount_reconcile_currency = 0
             if field == 'amount_residual_currency':
@@ -361,7 +648,6 @@ class AccountMoveLineUSA(models.Model):
 
         return debit_moves+credit_moves
 
-    @api.multi
     def reconcile(self, writeoff_acc_id=False, writeoff_journal_id=False):
         """
         This function is to add applied journal items to payment.
@@ -434,8 +720,15 @@ class AccountMoveLineUSA(models.Model):
         if partial_reconcile and partial_reconcile.currency_id == to_currency:
             return partial_reconcile.amount_currency
 
-        company_id = self.env.user.company_id
+        company_id = self.env.company
         from_currency = from_currency or company_id.currency_id
         if from_currency != to_currency:
             return from_currency._convert(amount, to_currency, company_id, fields.Date.today())
         return amount
+
+    def unlink(self):
+        statement_ids = self.mapped('statement_line_id')
+        super(AccountMoveLineUSA, self).unlink()
+
+        # If all journal items of a BSL is removed, set status to draft
+        statement_ids.filtered(lambda r: not r.journal_entry_ids).write({'status': 'open'})

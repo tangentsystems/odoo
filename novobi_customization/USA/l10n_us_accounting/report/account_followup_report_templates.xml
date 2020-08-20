@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="account_reports.line_template_followup_report" model="ir.ui.view">
-        <field name="primary" eval="False"/>
-    </record>
+    <!--<record id="account_followup.line_template_followup_report" model="ir.ui.view">-->
+        <!--<field name="primary" eval="False"/>-->
+    <!--</record>-->
 
     <!-- Add a summary for account followup report-->
-    <template id="customer_statement_report" inherit_id="account_reports.template_followup_report">
+    <template id="customer_statement_report" inherit_id="account_followup.template_followup_report">
         <xpath expr="//div[hasclass('js_account_report_footnotes')]" position="before">
             <link rel="stylesheet" type="text/css" href="/l10n_us_accounting/static/src/css/usa_account_followup_report.css"/>
             <div class="table-responsive">

@@ -10,15 +10,9 @@
                     <group col="4">
                         <field name="name" modifiers="{}"/>
                         <field name="selected" modifiers="{}"/>
-                        <field name="color" modifiers="{}" widget="color"/>
                         <field name="period_type" modifiers="{}"/>
                         <field name="unit" modifiers="{}"/>
-                    </group>
-                    <separator/>
-                    <group col="4">
-                        <field name="icon_inc" class="oe_avatar" widget="image" style="background-color: gray;"/>
-                        <field name="icon_dec" class="oe_avatar" widget="image" style="background-color: gray;"/>
-                        <field name="icon_noc" class="oe_avatar" widget="image" style="background-color: gray;"/>
+                        <field name="green_on_positive" modifiers="{}"/>
                     </group>
                 </sheet>
             </form>
@@ -28,7 +22,6 @@
     <record id="action_personalized_kpi" model="ir.actions.act_window">
         <field name="name">Personalized KPI</field>
         <field name="res_model">personalized.kpi.info</field>
-        <field name="view_type">form</field>
         <field name="view_mode">tree,form</field>
     </record>
 

@@ -37,7 +37,6 @@
         <field name="name">Cash Flow Statement Structure</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">cash.flow.report.structure</field>
-        <field name="view_type">form</field>
         <field name="view_mode">tree,form</field>
         <field name="view_id" ref="view_cash_flow_report_structure_tree"/>
     </record>

@@ -1,6 +1,3 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
 {
     'name': 'Billable Expense - assigned to customer from Vendor Bill',
     'summary': 'Accounting: Billable Expense',
@@ -8,18 +5,17 @@
     'website': 'http://www.odoo-accounting.com',
     'category': 'Accounting',
     'version': '1.0',
-    'license': 'OPL-1',
+    'license': 'LGPL-3',
     'depends': [
         'l10n_generic_coa',
         'account_reports',
     ],
-
     'data': [
         'security/ir.model.access.csv',
         'data/billable_expense_report_data.xml',
         'data/mail_data.xml',
         'views/assets.xml',
-        'views/account_invoice_view.xml',
+        'views/account_move_view.xml',
         'views/billable_expense_view.xml',
         'views/billable_expense_report.xml',
     ],

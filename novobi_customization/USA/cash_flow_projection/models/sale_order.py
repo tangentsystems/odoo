@@ -16,7 +16,7 @@ class SaleOrder(models.Model):
     amount_so_remaining = fields.Monetary(string='Unpaid Amount', default=0,
                                           compute="_get_remaining_so_amount", store=True)
     
-    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_status', 'order_line.invoice_lines')
+    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.move_id.state')
     def _get_remaining_so_amount(self):
         """
         Calculate the remaining amount of Sale Order
@@ -24,9 +24,7 @@ class SaleOrder(models.Model):
         """
         from_date = datetime.datetime.today() - relativedelta(months=2)
         if len(self) > 1:
-            orders = self.filtered(
-                lambda o: o.state == 'sale' and ((o.confirmation_date and o.confirmation_date > from_date) or (
-                        not o.confirmation_date and o.date_order and o.date_order > from_date)))
+            orders = self.filtered(lambda o: o.state == 'sale' and o.date_order and o.date_order > from_date)
         else:
             orders = self
         for order in orders:

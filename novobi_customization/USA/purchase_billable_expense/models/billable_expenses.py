@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 from odoo import api, fields, models
 
@@ -16,18 +15,13 @@ class BillableExpenses(models.Model):
         Override to get data from PO
         """
         for record in self:
-            bill = record.bill_id
-            purchase = record.purchase_id
-            if bill:
-                record.source_document = bill.number
-                record.supplier_id = bill.partner_id
-                record.currency_id = bill.currency_id
-                record.company_id = bill.company_id
-            elif purchase:
-                record.source_document = purchase.name
-                record.supplier_id = purchase.partner_id
-                record.currency_id = purchase.currency_id
-                record.company_id = purchase.company_id
+            source = record.bill_id or record.purchase_id
+            values = (source.name, source.partner_id, source.currency_id, source.company_id) if source else (False, False, False, False)
+
+            record.source_document = values[0]
+            record.supplier_id = values[1]
+            record.currency_id = values[2]
+            record.company_id = values[3]
 
     def _log_message_expense(self, vals):
         """
@@ -37,5 +31,13 @@ class BillableExpenses(models.Model):
             msg = record._get_log_msg(vals)
             if record.bill_id:
                 record.bill_id.message_post(body=msg, subtype='account_billable_expense.mt_billable_expense')
-            elif record.purchase_id:
+            if record.purchase_id:
                 record.purchase_id.message_post(body=msg, subtype='account_billable_expense.mt_billable_expense')
+
+    def get_expense_account(self):
+        """
+        Override to get account from product of purchase order lines.
+        :return: account_id (int)
+        """
+        account = self._get_expense_account(self.mapped('purchase_line_id'))
+        return account or super(BillableExpenses, self).get_expense_account()

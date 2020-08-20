@@ -1,28 +1,18 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import numbers
 import base64
 from datetime import datetime
-import time
-from pytz import timezone
-import dateutil
-
-import odoo
-import os
 import logging
 
-from odoo.tools.safe_eval import safe_eval
-
 from odoo import api, models, fields, tools, modules, _
-
 from odoo.addons.account_reports.models.account_financial_report import FormulaLine
+from odoo.tools.safe_eval import safe_eval
+from odoo.tools.float_utils import float_compare
 
-from ..utils.utils import format_percentage, get_eval_context, \
-    get_short_currency_amount, format_currency
-from ..utils.time_utils import BY_DAY, BY_WEEK, BY_MONTH, \
-    BY_QUARTER, BY_YEAR, BY_YTD, get_start_end_date_value_with_delta
+from ..utils.utils import format_percentage, get_eval_context, get_short_currency_amount, format_currency
+from ..utils.time_utils import BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, BY_YTD, get_start_end_date_value_with_delta
 
 _logger = logging.getLogger(__name__)
 
@@ -39,7 +29,8 @@ class KPIJournal(models.Model):
 
     def _get_default_image(self, module, path, name):
         image_path = modules.get_module_resource(module, path, name)
-        return tools.image_resize_image_big(base64.b64encode(open(image_path, 'rb').read()))
+        return tools.image_process(base64.b64encode(open(image_path, 'rb').read()), size=(1024, 1024))
+        # return tools.image_resize_image_big(base64.b64encode(open(image_path, 'rb').read()))
 
     periods_type = [
         (BY_DAY, 'Daily'),
@@ -62,22 +53,16 @@ class KPIJournal(models.Model):
     code_name = fields.Char('KPI Code Name', require=True)
     color = fields.Char(default='#9fc5f8')
     icon_kpi = fields.Binary('Icon KPI', attachment=True,
-                             default=lambda self:
-                             self._get_default_image('account_dashboard', 'static/src/img', 'default_icon.png'))
+                             default=lambda self: self._get_default_image('account_dashboard', 'static/src/img', 'default_icon.png'))
     period_type = fields.Selection(periods_type, default=BY_YTD)
     code_compute = fields.Char(default="result = 0")
     unit = fields.Selection(units_type, default=CURRENCY)
     default_kpi = fields.Boolean("Is Default KPI", default=False, readonly=True)
-    icon_inc = fields.Binary('Icon Increase', attachment=True, default=lambda self:
-    self._get_default_image('account_dashboard', 'static/src/img', 'up.png'))
-    icon_dec = fields.Binary('Icon Decrease', attachment=True, default=lambda self:
-    self._get_default_image('account_dashboard', 'static/src/img', 'down.png'))
-    icon_noc = fields.Binary('Icon No Change', attachment=True, default=lambda self:
-    self._get_default_image('account_dashboard', 'static/src/img', 'no_change.png'))
+    green_on_positive = fields.Boolean(string='Is growth good when positive?', default=True)
 
     def generate_data_kpi(self):
         # call <name>_kpi_generate_data to update the the kpi dashboard
-        cust_method_name = '%s_kpi_generate_data' % (self.provider)
+        cust_method_name = '{}_kpi_generate_data'.format(self.provider)
         if hasattr(self, cust_method_name):
             method = getattr(self, cust_method_name)
             # values = method(values)
@@ -109,7 +94,7 @@ class KPIJournal(models.Model):
         """
         kpi_render = []
         # Select all kpi have been chosen and render it to header
-        kpis = kpis_info.filtered(lambda kpi: kpi.selected == True).sorted('order')
+        kpis = kpis_info.filtered('selected').sorted('order')
         dict_context = get_eval_context(self, 'kpi.journal')
 
         # Dictionary have structure with key is the range time and the value is the normal
@@ -140,7 +125,7 @@ class KPIJournal(models.Model):
 
     def get_kpi_selected(self, kpis_info):
         kpi_selected = []
-        kpis = kpis_info.filtered(lambda kpi: kpi.selected is True).sorted('order')
+        kpis = kpis_info.filtered('selected').sorted('order')
         for kpi in kpis:
             kpi_selected.append(kpi.kpi_id.name)
         return kpi_selected
@@ -156,9 +141,7 @@ class KPIJournal(models.Model):
 
         kpis_info = self.search([('id', 'in', kpi_ids)])
         for kpi in kpis_info:
-            start, end = \
-                get_start_end_date_value_with_delta(self, datetime.now(),
-                                                    kpi.period_type, delta_periods)
+            start, end = get_start_end_date_value_with_delta(self, datetime.now(), kpi.period_type, delta_periods)
 
             dict_context['date_from'] = start
             dict_context['date_to'] = end
@@ -194,8 +177,7 @@ class KPIJournal(models.Model):
         kpi_info_detail = info.kpi_id
 
         # append current time range to dict_context
-        self.append_data_follow_range_time(dict_context, kpi_info_detail.period_type,
-                                           delta_periods=0, lines_dict=dict_lines_data)
+        self.append_data_follow_range_time(dict_context, kpi_info_detail.period_type, delta_periods=0, lines_dict=dict_lines_data)
         comparison = ''
         comparison_title = ''
         trend = ''
@@ -208,8 +190,7 @@ class KPIJournal(models.Model):
 
             # PROGRESS FOR PREVIOUS PERIOD
             # append range time of previous period
-            self.append_data_follow_range_time(dict_context, kpi_info_detail.period_type,
-                                               delta_periods=-1, lines_dict=dict_lines_data)
+            self.append_data_follow_range_time(dict_context, kpi_info_detail.period_type, delta_periods=-1, lines_dict=dict_lines_data)
 
             # compute result for previous period
             safe_eval(kpi_info_detail.code_compute, dict_context, mode="exec", nocopy=True)
@@ -219,12 +200,15 @@ class KPIJournal(models.Model):
                 formatted_minus_value, short_minus_title = self.format_number_type(minus_value, kpi_info_detail.unit)
                 comparison += short_minus_title + _(' vs prior period')
                 comparison_title += formatted_minus_value + _(' vs prior period')
-                if minus_value > 0:
-                    trend = 'web/image?model=%s&field=icon_inc&id=%s&unique=' % (info._name, info.id)
-                elif minus_value < 0:
-                    trend = 'web/image?model=%s&field=icon_dec&id=%s&unique=' % (info._name, info.id)
-                elif minus_value == 0:
-                    trend = 'web/image?model=%s&field=icon_noc&id=%s&unique=' % (info._name, info.id)
+                
+                if float_compare(minus_value, 0, precision_rounding=2) > 0:
+                    icon = kpi_info_detail.green_on_positive and 'up_green' or 'up_red'
+                elif float_compare(minus_value, 0, precision_rounding=2) < 0:
+                    icon = kpi_info_detail.green_on_positive and 'down_red' or 'down_green'
+                else:
+                    icon = 'no_change'
+                
+                trend = '/account_dashboard/static/src/img/{}.png'.format(icon)
         except:
             formatted_value = '-'
             short_title = '-'
@@ -239,7 +223,7 @@ class KPIJournal(models.Model):
             'comparison_title': comparison_title,
             'period_type': info.period_type.upper(),
             'trend': trend,
-            'icon': 'web/image?model=%s&field=icon_kpi&id=%s&unique=' % (info._name, info.id)
+            'icon': 'web/image?model={model}&field=icon_kpi&id={id}&unique='.format(model=info._name, id=info.id)
         }
 
         return kpi_data_render
@@ -264,8 +248,7 @@ class KPIJournal(models.Model):
         modelAFHRL = self.env['account.financial.html.report.line']
         financial_report = modelAFHR.search([('name', '=', report_name)])
         if len(financial_report) == 1:
-            cur_group = modelAFHRL.search(
-                [('name', '=', group_name)])
+            cur_group = modelAFHRL.search([('name', '=', group_name)])
             if len(cur_group) > 1:
                 result_group = []
                 # loop each group when it return multiple group have same name
@@ -284,10 +267,7 @@ class KPIJournal(models.Model):
                     if date_from and date_to:
                         cur_group = cur_group.with_context(strict_range=False, date_from=str(date_from),
                                                            date_to=str(date_to), state='posted')
-                    return_value = FormulaLine(cur_group,
-                                               currency_table,
-                                               financial_report,
-                                               linesDict=lines_dict)
+                    return_value = FormulaLine(cur_group, currency_table, financial_report, linesDict=lines_dict)
 
         return return_value
 
@@ -301,11 +281,9 @@ class KPIJournal(models.Model):
         :return:
         """
         if company_id:
-            old_comp_id = self.env.user.company_id.id
-            self.env.user.company_id = company_id
-        from_date, to_date = \
-            get_start_end_date_value_with_delta(self, datetime.now(),
-                                                type_period, delta_periods)
+            old_comp_id = self.env.company.id
+            self.env.company = company_id
+        from_date, to_date = get_start_end_date_value_with_delta(self, datetime.now(), type_period, delta_periods)
 
         # Change range time data
         dict_context['date_from'] = str(from_date.date())
@@ -315,7 +293,7 @@ class KPIJournal(models.Model):
         dict_context['lines_dict'] = lines_dict.setdefault((dict_context['date_from'], dict_context['date_to']), {})
 
         if company_id:
-            self.env.user.company_id = old_comp_id
+            self.env.company = old_comp_id
 
     def format_number_type(self, value, unit_type):
         """ Function is the middle layer between layout and utils. It will receive value
@@ -328,7 +306,7 @@ class KPIJournal(models.Model):
         formatted_value = short_title = ''
         if unit_type == CURRENCY:
             formatted_value = format_currency(self, value)
-            short_title = get_short_currency_amount(value, self.env.user.company_id.currency_id)
+            short_title = get_short_currency_amount(value, self.env.company.currency_id)
 
         elif unit_type == PERCENTAGE:
             formatted_value = format_percentage(value)

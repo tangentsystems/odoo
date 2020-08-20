@@ -6,6 +6,9 @@
     "website": "https://www.novobi.com/",
     "description": """Cash Flow Projection is a part of Accounting Finance For E-Retailers""",
     "depends": [
+        # 'account_partner_deposit',
+        # 'purchase_partner_deposit',
+        # 'sale_partner_deposit',
         'purchase',
         'sale',
         'account_reports',

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        <!-- INITIAL FUNCTION -->
-        <function model="account.reconcile.model" name="update_bank_rule_type"/>
-    </data>
-</odoo>

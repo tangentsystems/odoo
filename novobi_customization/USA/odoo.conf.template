@@ -1,7 +1,7 @@
 [options]
 max_cron_threads = {{ config['MAX_CRON_THREADS'] | default(1, true) }}
 proxy_mode = True
-addons_path = /opt/odoo/enterprise,/opt/odoo/shared_modules,/opt/odoo/odoo/addons,/opt/odoo/customized_addons
+addons_path = /opt/odoo/enterprise,/opt/odoo/odoo/addons,/opt/odoo/shared_modules,/opt/odoo/customized_addons
 data_dir = /var/lib/odoo/
 without_demo=all
 
