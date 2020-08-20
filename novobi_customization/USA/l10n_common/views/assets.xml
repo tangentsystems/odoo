@@ -2,7 +2,9 @@
 <odoo>
     <template id="l10n_common.assets_backend_common" name="Backend Assets Common" inherit_id="web.assets_backend">
         <xpath expr="." position="inside">
-            <script type="text/javascript" src="/l10n_common/static/src/js/list_view.js"/>
+            <script type="text/javascript" src="/l10n_common/static/lib/stickytableheaders/jquery.stickytableheaders.js"></script>
+            <script type="text/javascript" src="/l10n_common/static/src/js/freeze_header_list_view.js"></script>
+            <script type="text/javascript" src="/l10n_common/static/src/js/web_view_search.js"></script>
         </xpath>
     </template>
 </odoo>

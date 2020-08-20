@@ -6,7 +6,7 @@
             <field name="name">Personalized KPI Journal</field>
             <field name="model_id" ref="account_dashboard.model_personalized_kpi_info"/>
             <field name="global" eval="True"/>
-            <field name="domain_force">[('user_id','=',user.id),'|',('company_id','=',False),('company_id','in',user.company_ids.ids)]</field>
+            <field name="domain_force">[('user_id','=',user.id),'|',('company_id','=',False),('company_id','=',user.company_id.id)]</field>
         </record>
 
     </data>

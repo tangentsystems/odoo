@@ -2,7 +2,7 @@
 <odoo>
     <report
             id="account_invoice_report_list_invoices"
-            model="account.move"
+            model="account.invoice"
             string="List of Transactions"
             report_type="qweb-pdf"
             name="l10n_us_accounting.account_invoice_view_tree"
@@ -42,13 +42,13 @@
                             <tbody>
                                 <tr t-foreach="docs" t-as="o">
                                     <td>
-                                        <span t-field="o.invoice_date"/>
+                                        <span t-field="o.date_invoice"/>
                                     </td>
                                     <td>
                                         <span t-field="o.partner_id"/>
                                     </td>
                                     <td>
-                                        <span t-field="o.name"/>
+                                        <span t-field="o.number"/>
                                     </td>
                                     <td>
                                         <span t-field="o.user_id"/>
@@ -57,7 +57,7 @@
                                         <span t-field="o.amount_total"/>
                                     </td>
                                     <td>
-                                        <span t-field="o.amount_residual"/>
+                                        <span t-field="o.residual"/>
                                     </td>
                                 </tr>
                             </tbody>

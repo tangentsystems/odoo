@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 from odoo import api, fields, models, _
 
 
@@ -13,11 +14,12 @@ class SaleAdvancePaymentInv(models.TransientModel):
     def _get_advance_payment_method(self):
         return 'delivered'
 
+    @api.multi
     def create_invoices(self):
         sale_orders = self.env['sale.order'].browse(self._context.get('active_ids', []))
 
         if self.advance_payment_method in ['delivered', 'all'] and self.is_validate_invoice:
-            sale_orders.with_context(validate_invoice=True)._create_invoices()
+            sale_orders.with_context(validate_invoice=True).action_invoice_create()
 
             if self._context.get('open_invoices', False):
                 return sale_orders.action_view_invoice()

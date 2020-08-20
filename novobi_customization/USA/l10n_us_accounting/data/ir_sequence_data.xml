@@ -6,4 +6,11 @@
         <field name="padding">6</field>
         <field name="company_id" eval="False"/>
     </record>
+
+    <record id="payment_reference" model="ir.sequence">
+        <field name="name">Payment Reference</field>
+        <field name="code">payment.reference.code</field>
+        <field name="padding">6</field>
+        <field name="company_id" eval="False"/>
+    </record>
 </odoo>

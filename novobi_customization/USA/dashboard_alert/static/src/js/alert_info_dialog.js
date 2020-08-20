@@ -9,7 +9,7 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
     var ListController = require('web.ListController');
     var ListView = require('web.ListView');
     var pyUtils = require('web.py_utils');
-    var SearchView = require('web.SearchPanel');
+    var SearchView = require('web.SearchView');
     var view_registry = require('web.view_registry');
 
     var _t = core._t;
@@ -106,10 +106,8 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
             options = options || {};
 
             this.res_id = options.res_id || null;
-            this.on_saved = options.on_saved || (function () {
-            });
-            this.on_remove = options.on_remove || (function () {
-            });
+            this.on_saved = options.on_saved || (function () {});
+            this.on_remove = options.on_remove || (function () {});
             this.context = options.context;
             this.model = options.model;
             this.parentID = options.parentID;
@@ -231,7 +229,7 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
         /**
          * @override
          */
-        _focusOnClose: function () {
+        _focusOnClose: function() {
             this.trigger_up('form_dialog_discarded');
             return true;
         },
@@ -317,14 +315,13 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
          */
         init: function (parent, options) {
             this._super.apply(this, arguments);
-            _.defaults(options, {initial_view: 'search'});
-            this.on_selected = options.on_selected || (function () {
-            });
+            _.defaults(options, { initial_view: 'search' });
+            this.on_selected = options.on_selected || (function () {});
             this.initial_ids = options.initial_ids;
             this.title_create = options.title_create;
             this.parent = parent;
         },
-        custom_open: function (params) {
+        custom_open: function(params){
             this.open()
         },
         open: function (params) {
@@ -374,19 +371,16 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
                 $buttons: $('<div/>').addClass('o_search_options').appendTo($header),
                 search_defaults: search_defaults,
             };
-            // var searchview = new SearchView(this, this.dataset, fields_views.search, options);
-            // searchview.prependTo($header).done(function () {
-            //     var d = searchview.build_search_data();
-            //     if (self.initial_ids) {
-            //         d.domains.push([["id", "in", self.initial_ids]]);
-            //         self.initial_ids = undefined;
-            //     }
-            //     var searchData = self._process_search_data(d.domains, d.contexts, d.groupbys);
-            //     searchDef.resolve(searchData);
-            // });
-
-            var searchData = self._process_search_data(["|", ["self_active", "=", true], ["is_creator", "in", ["is_creator", "is_not_recepient"]]],{}, []);
-            searchDef.resolve(searchData);
+            var searchview = new SearchView(this, this.dataset, fields_views.search, options);
+            searchview.prependTo($header).done(function () {
+                var d = searchview.build_search_data();
+                if (self.initial_ids) {
+                    d.domains.push([["id", "in", self.initial_ids]]);
+                    self.initial_ids = undefined;
+                }
+                var searchData = self._process_search_data(d.domains, d.contexts, d.groupbys);
+                searchDef.resolve(searchData);
+            });
 
             return $.when(searchDef).then(function (searchResult) {
                 // Set the list view
@@ -437,7 +431,7 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
                 }
                 return self.list_controller.appendTo(fragment);
             }).then(function () {
-                // searchview.toggle_visibility(true);
+                searchview.toggle_visibility(true);
                 self.list_controller.do_show();
                 self.list_controller.renderPager($pager);
                 return fragment;
@@ -451,9 +445,7 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
                 group_by_seq: groupbys || [],
                 eval_context: this.getSession().user_context,
             });
-            var context = _.omit(results.context, function (value, key) {
-                return key.indexOf('search_default_') === 0;
-            });
+            var context = _.omit(results.context, function (value, key) { return key.indexOf('search_default_') === 0; });
             return {
                 context: context,
                 domain: results.domain,
@@ -473,10 +465,10 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
                     self.on_selected(values);
                 },
             })).open();
-            if (self.title_create !== undefined) {
+            if (self.title_create !== undefined){
                 dialog.title = self.title_create;
             }
-            dialog.on('closed', this, function () {
+            dialog.on('closed', this, function (){
                 var options = $.extend({}, self.options);
                 var dialog = new AlertInfoTreeViewDialog(self.parent, options)
                 self.close();
@@ -488,14 +480,14 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
         /**
          * @override
          */
-        _focusOnClose: function () {
+        _focusOnClose: function() {
             this.trigger_up('form_dialog_discarded');
             return true;
         },
         //--------------------------------------------------------------------------
         // Private
         //--------------------------------------------------------------------------
-        _delete_kpi_alerts: function (skip_assigned_alert) {
+        _delete_kpi_alerts: function(skip_assigned_alert) {
             var self = this;
             var records = self.list_controller.getSelectedRecords();
             var ajax = odoo.__DEBUG__.services['web.ajax'];
@@ -503,7 +495,7 @@ odoo.define('dashboard_alert.AlertInfoTreeViewDialog', function (require) {
             var ids = _.map(records, function (record) {
                 return record.res_id;
             });
-            var args = skip_assigned_alert ? [ids, skip_assigned_alert] : [ids, false];
+            var args = skip_assigned_alert?[ids, skip_assigned_alert]:[ids, false];
             ajax.jsonpRpc('/web/dataset/call_kw', 'call', {
                 model: 'alert.info',
                 method: 'call_delete_kpi_alerts',

@@ -4,7 +4,8 @@
         <field name="name">usa.journal.kanban</field>
         <field name="model">usa.journal</field>
         <field name="arch" type="xml">
-            <kanban create="false" class="oe_background_grey o_kanban_dashboard o_account_kanban o_account_dashboard_kanban" js_class="usa_kpi">
+            <kanban create="false" class="oe_background_grey o_kanban_dashboard
+            o_account_kanban o_account_dashboard_kanban" js_class="usa_kpi">
                 <field name="id"/>
                 <field name="type"/>
                 <field name="extend_data"/>
@@ -210,16 +211,13 @@
                                 <button type="object" name="action_create_new" class="btn btn-primary o_invoice_new">
                                     <span>New Invoice</span>
                                 </button>
-                                <button class="btn btn-primary d-block o_button_upload_bill" journal_type="sale">
-                                    <span>Upload Invoices</span>
-                                </button>
                             </t>
                             <t t-if="type == 'purchase'">
                                 <button type="object" name="action_create_new" class="btn btn-primary">
                                     <span>New Bill</span>
                                 </button>
-                                <button class="btn btn-primary d-block o_button_upload_bill" journal_type="purchase">
-                                    <span>Upload Bills</span>
+                                <button type="action" name="%(account.account_invoice_import_wizard_action)d" class="btn btn-primary">
+                                    <span>Import Bills</span>
                                 </button>
                             </t>
                         </div>
@@ -235,7 +233,9 @@
     <record id="open_usa_journal_dashboard_kanban" model="ir.actions.act_window">
         <field name="name">Company Insight</field>
         <field name="type">ir.actions.act_window</field>
+        <field name="condition">True</field>
         <field name="res_model">usa.journal</field>
+        <field name="view_type">form</field>
         <field name="view_mode">kanban,form</field>
     </record>
 
@@ -259,6 +259,7 @@
                     </p>
                     <group>
                         <field name="currency_id" invisible="1"/>
+
                         <field name="recurring_cashin"/>
                         <field name="recurring_cashout"/>
                     </group>

@@ -6,7 +6,7 @@
             <li role="presentation" position="after">
                 <li t-if="line['caret_options'] == 'billable.expenses'">
                     <a role="menuitem" tabindex="-1" t-att-data-id="line['id']"
-                       data-object="account.move" action="open_bill_expense" class="dropdown-item" >View Bill
+                       data-object="account.invoice" action="open_bill_expense" class="dropdown-item" >View Bill
                     </a>
                 </li>
             </li>
@@ -15,7 +15,8 @@
         <!--MAIN TEMPLATE to call LINE TEMPLATE-->
         <template id="template_billable_expense_report" inherit_id="account_reports.main_template" primary="True">
             <!--Remove UNPOSTED warning-->
-            <xpath expr="//div[hasclass('alert', 'alert-info')]" position="replace"/>
+            <xpath expr="//div[contains(@class, 'alert alert-info')]" position="replace">
+            </xpath>
 
             <xpath expr="//tbody" position="replace">
                 <t t-if="lines.get('lines')">
@@ -27,7 +28,7 @@
         <!--LINE TEMPLATE to render checkbox-->
         <template id="line_template_billable_expense_report" inherit_id="account_reports.line_template" primary="True">
             <xpath expr="//span[hasclass('o_account_report_column_value')]" position="replace">
-                <span class="o_account_report_column_value">
+                <span class="'o_account_report_column_value'">
                     <t t-if="column.get('blocked') != None">
                         <input t-if="column['blocked'] == False" type="checkbox" name="blocked"
                                t-att-value="column['blocked']" disabled="disabled" />
@@ -41,11 +42,21 @@
             </xpath>
         </template>
 
-        <!-- Hide filter by date n Search Template -->
+        <!--SEARCH TEMPLATE-->
+        <template id="search_template_date_filter_expense" inherit_id="account_reports.search_template_date_filter" primary="True">
+            <div role="menu" position="replace">
+                <div class="dropdown-menu o_filters_menu" role="menu">
+                    <t t-if="options['date'].get('date')">
+                        <a role="menuitem" class="dropdown-item js_account_report_date_filter" title="Today" data-filter="today">Today</a>
+                    </t>
+                </div>
+            </div>
+        </template>
+
         <template id="search_template_expense" inherit_id="account_reports.search_template" primary="True">
-            <xpath expr="//div[hasclass('o_account_reports_filter_date')]" position="attributes">
-                <attribute name="class">btn-group o_dropdown o_account_reports_filter_date invisible</attribute>
-            </xpath>
+            <t t-call="account_reports.search_template_date_filter" position="replace">
+                <t t-call="account_billable_expense.search_template_date_filter_expense"/>
+            </t>
         </template>
     </data>
 </odoo>

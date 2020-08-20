@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 from odoo import api, fields, models, _
 
 
@@ -21,7 +22,7 @@ class Partner(models.Model):
 
     customer_deposit_aml_ids = fields.One2many('account.move.line', 'partner_id',
                                                domain=[('payment_id.is_deposit', '=', True),
-                                                       ('payment_id.payment_type', '=', 'inbound'), # Only customer deposit
+                                                       ('payment_id.payment_type', '=', 'inbound'),
                                                        ('reconciled', '=', False),
                                                        ('credit', '>', 0), ('debit', '=', 0),
                                                        '|', ('amount_residual', '!=', 0.0),

@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
-from odoo.tools import float_is_zero
-from odoo.tools.misc import formatLang
+from odoo.tools import float_compare
+from odoo.tools.misc import formatLang, format_date
 from ..utils.utils import has_multi_currency_group
 
 
@@ -13,149 +14,139 @@ class AccountPaymentUSA(models.Model):
     # set "required=False" and modify required condition in view
     journal_id = fields.Many2one(domain=[('type', 'in', ('bank', 'cash'))], string='Bank Account', required=False)
     ar_in_charge = fields.Many2one(string='AR In Charge', comodel_name='res.users')
+    show_cancel_button = fields.Integer(string="Show cancel", compute='_show_cancel_button')
 
     # Add Open invoices to Payment
     open_invoice_ids = fields.One2many('usa.payment.invoice', 'payment_id')
     has_open_invoice = fields.Boolean(compute='_get_has_open_invoice', store=True)
     available_move_line_ids = fields.Many2many('account.move.line', compute='_get_available_move_line', store=True)
+    payment_with_invoices = fields.Monetary('Payment with Invoices', compute='_get_total_payment', store=True)
+    outstanding_payment = fields.Monetary('Outstanding Payment', compute='_get_outstanding_payment', store=True)
 
-    payment_with_invoices = fields.Monetary('Payment with Invoices', compute='_compute_payment_with_invoices', store=True)
-    outstanding_payment = fields.Monetary('Outstanding Payment', compute='_compute_outstanding_payment', store=True)
-    writeoff_amount = fields.Monetary('Write-off Amount', compute='_compute_writeoff_amount', store=True)
+    # show transaction response when pay with credit card
+    show_transaction_response = fields.Boolean(default=False, copy=False)
 
-    # Technical fields
     check_number_text = fields.Char(compute='_compute_check_number_text', store=True)
     display_applied_invoices = fields.Boolean(compute='_get_display_applied_invoices',
                                               help="Technical field to display/hide applied invoices")
-    has_been_reviewed = fields.Boolean(string='Have been reviewed?', compute='_compute_has_been_reviewed', store=True, default=False, copy=False)
-
-    @api.depends('move_line_ids', 'move_line_ids.statement_line_id', 'journal_id')
-    def _compute_has_been_reviewed(self):
-        for record in self:
-            accounts = [record.journal_id.default_debit_account_id, record.journal_id.default_credit_account_id]
-            aml_ids = record.move_line_ids.filtered(lambda r: r.account_id in accounts)
-            record.has_been_reviewed = True if aml_ids and not aml_ids.filtered(lambda r: not r.statement_line_id) else False
 
     # Keep Invoice/Bill Open or Write-off
     payment_writeoff_option = fields.Selection([
         ('open', 'Keep open'), ('reconcile', 'Mark invoice as fully paid')],
         default='open', string="Payment Write-off Option", copy=False)
 
-    @api.constrains('amount', 'payment_with_invoices', 'payment_type')
-    def _check_amount_and_payment_with_invoices(self):
-        for record in self:
-            if record.outstanding_payment < 0:
-                raise ValidationError(_('Outstanding Payment cannot be negative.'))
-
-    @api.depends('open_invoice_ids', 'open_invoice_ids.payment')
-    def _compute_payment_with_invoices(self):
-        """
-        Compute Payment with Invoices/Bills.
-        Payment with Invoices/Bills = Total payment of all applied invoices/bills.
-        """
-        for record in self:
-            record.payment_with_invoices = sum(inv.payment for inv in record.open_invoice_ids) if record.open_invoice_ids else 0
-
-    @api.depends('move_line_ids', 'destination_account_id', 'journal_id.default_debit_account_id', 'journal_id.default_credit_account_id')
-    def _compute_writeoff_amount(self):
-        """
-        Compute writeoff amount for this payment.
-        - Total amount = Total balance of all lines having account in [default_debit_account_id, default_credit_account_id]
-        of bank account. Use this instead of Amount of payment to not depend on it.
-
-        - Counterpart amount = Total balance of all lines having account same to Destination Account.
-            Ex:     - Customer payment: Account Receivable
-                    - Vendor payment: Account Payable
-                    - Customer Deposit: Customer Deposit
-
-        WRITEOFF AMOUNT = Total amount - Counterpart amount
-        """
-        for record in self:
-            if record.state in ['draft', 'cancelled']:
-                writeoff_amount = 0
-            else:
-                company_currency = record.company_id.currency_id
-                accounts = [record.journal_id.default_debit_account_id, record.journal_id.default_credit_account_id]
-                amount = sum(record.move_line_ids.filtered(lambda r: r.account_id in accounts).mapped('balance'))
-                counterpart_amount = sum(record.move_line_ids.filtered(lambda r: r.account_id == record.destination_account_id).mapped('balance'))
-                writeoff_amount = abs(amount) - abs(counterpart_amount)
-
-                if record.currency_id != company_currency:
-                    writeoff_amount = record.currency_id._convert(writeoff_amount, company_currency, record.company_id, record.payment_date)
-
-            record.writeoff_amount = writeoff_amount
-
-    @api.depends('payment_with_invoices', 'writeoff_amount', 'amount', 'state')
-    def _compute_outstanding_payment(self):
-        """
-        Compute Outstanding payment.
-        - Update Amount: when users apply Open Invoice/Bill, Amount is calculate automatically and Outstanding is 0.
-        - Outstanding payment = Total Amount - (Payment with Invoices/Bills + Write-off Amount)
-        """
-        for record in self:
-            if record.state == 'draft' and float_is_zero(record.outstanding_payment, precision_digits=2) and record.open_invoice_ids and not record.writeoff_amount:
-                record.amount = record.payment_with_invoices
-
-            record.outstanding_payment = record.amount - (record.payment_with_invoices + record.writeoff_amount)
-
-    # not return super()
-    @api.onchange('amount', 'currency_id')
-    def _onchange_amount(self):
-        super(AccountPaymentUSA, self)._onchange_amount()
-        # Change amount of payment manually.
-        self.outstanding_payment = self.amount - (self.writeoff_amount + self.payment_with_invoices)
-        return self.get_bank_account()
+    has_been_cashed = fields.Boolean('Cashed', compute='_compute_has_been_cashed',
+                                     search='_search_has_been_cashed',
+                                     help="True if this check payment has been matched with a bank statement line")
+    has_been_voided = fields.Boolean('Voided')
 
     @api.depends('check_number')
     def _compute_check_number_text(self):
         for record in self:
-            record.check_number_text = record.check_number and str(record.check_number)
+            if record.check_number:
+                record.check_number_text = str(record.check_number)
 
-    @api.depends('open_invoice_ids', 'has_open_invoice', 'payment_type', 'partner_type', 'writeoff_amount')
+    def close_transaction_response(self):
+        self.show_transaction_response = False
+
+    @api.depends('has_invoices', 'state', 'move_reconciled', 'payment_type')
+    def _show_cancel_button(self):
+        cancel_default = 0
+        cancel_draft_and_unpaid = 1
+        cancel_customer_payment_paid = 2
+        cancel_vendor_payment_paid = 3
+        cancel_reconciled_payment = 4
+
+        for payment in self:
+            is_posted_or_sent = payment.state in ('posted', 'sent')
+            if payment.state == 'draft' or (is_posted_or_sent and not payment.has_invoices):
+                payment.show_cancel_button = cancel_draft_and_unpaid
+            elif all((is_posted_or_sent, payment.has_invoices, payment.payment_type == 'inbound')):
+                payment.show_cancel_button = cancel_customer_payment_paid
+            elif all((is_posted_or_sent, payment.has_invoices, payment.payment_type == 'outbound')):
+                payment.show_cancel_button = cancel_vendor_payment_paid
+            elif payment.state == 'reconciled':
+                payment.show_cancel_button = cancel_reconciled_payment
+            else:
+                payment.show_cancel_button = cancel_default
+
+    def get_bank_account(self):
+        if self.payment_method_id and self.payment_type in ['inbound', 'outbound']:
+            return {'domain': {'journal_id': ['&', ('type', 'in', ('bank', 'cash')), (
+                self.payment_type + '_payment_method_ids.id', '=', self.payment_method_id.id)]}}
+        return {'domain': {'journal_id': [('type', 'in', ('bank', 'cash'))]}}
+
+    def _compute_journal_domain_and_types(self):
+        res = super(AccountPaymentUSA, self)._compute_journal_domain_and_types()
+        if self.currency_id.is_zero(self.amount):
+            self.payment_difference_handling = 'open'
+            if self.journal_id:
+                return {'domain': [], 'journal_types': set([self.journal_id.type])}
+            else:
+                return {'domain': [], 'journal_types': set([])}
+        return res
+
+    @api.depends('open_invoice_ids', 'has_open_invoice', 'payment_type', 'partner_type')
     def _get_display_applied_invoices(self):
-        register_payment_context = True if self.env.context.get('active_model') == 'account.move' else False
-
         for record in self:
-            if not float_is_zero(record.writeoff_amount, precision_rounding=2):
-                record.display_applied_invoices = True
-            elif (record.open_invoice_ids or record.has_open_invoice) and not register_payment_context and \
+            if (record.open_invoice_ids or record.has_open_invoice) and \
                     ((record.payment_type == 'inbound' and record.partner_type == 'customer') or
-                     (record.payment_type == 'outbound' and record.partner_type == 'supplier')):
+                         (record.payment_type == 'outbound' and record.partner_type == 'supplier')):
                 record.display_applied_invoices = True
             else:
                 record.display_applied_invoices = False
+
+    def _compute_has_been_cashed(self):
+        BSL = self.env['account.bank.statement.line']
+        # check_printing is out_bound, batch_payment is in_bound
+        check_payments = self.filtered(lambda x: x.payment_method_id.code in ['check_printing', 'batch_payment'] and
+                                                 x.state not in ['draft', 'cancelled'])
+
+        for record in check_payments:
+            domain = [('status', '=', 'confirm')]
+            if record.batch_payment_id:
+                domain.append(('applied_batch_ids', 'in', [record.batch_payment_id.id]))
+            else:
+                domain.append(('applied_aml_ids', 'in', record.move_line_ids.ids))
+            reviewed_transactions = BSL.search(domain)
+            record.has_been_cashed = True if reviewed_transactions else False
+
+    def _search_has_been_cashed(self, operator, value):
+        BSL = self.env['account.bank.statement.line']
+        reviewed_transactions = BSL.search([('status', '=', 'confirm')])
+
+        results = self.search([('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                               '|',
+                               '&', ('batch_payment_id', '!=', False),
+                               ('batch_payment_id.id', 'in', reviewed_transactions.mapped('applied_batch_ids').ids),
+                               '&', ('batch_payment_id', '=', False),
+                               ('move_line_ids', 'in', reviewed_transactions.mapped('applied_aml_ids').ids)])
+        result_operator = 'not in'
+        if (operator == "=" and value) or (operator == "!=" and not value):
+            result_operator = 'in'
+        return [('id', result_operator, results.ids)]
+
+    # not return super()
+    @api.onchange('amount', 'currency_id')
+    def _onchange_amount(self):
+        res = super(AccountPaymentUSA, self)._onchange_amount()
+        return self.get_bank_account()
 
     @api.onchange('partner_id')
     def _onchange_select_customer(self):
         self.ar_in_charge = self.partner_id.ar_in_charge
 
-    def get_bank_account(self):
-        domain = {}
-        journal_domain = [('type', 'in', ('bank', 'cash'))]
-
-        if self.payment_type in ['inbound', 'outbound']:
-            methods_field = self.payment_type + '_payment_method_ids'
-            if self.payment_method_id:
-                journal_domain.append((methods_field + '.id', '=', self.payment_method_id.id))
-
-            if self.journal_id:
-                domain['payment_method_id'] = [('id', 'in', self.journal_id[methods_field].ids)]
-
-        domain['journal_id'] = journal_domain
-        return {'domain': domain}
-
+    @api.multi
     def button_journal_entries(self):
         action = super(AccountPaymentUSA, self).button_journal_entries()
         action['name'] = _('Journal Entry')
         return action
 
+    @api.multi
     def post(self):
         for payment in self:
             if payment.amount <= 0:
                 raise ValidationError(_('Payment Amount must be greater than 0'))
-
-        self._create_write_off()
-
         res = super(AccountPaymentUSA, self).post()
 
         # reconcile payment with open invoices
@@ -172,7 +163,7 @@ class AccountPaymentUSA(models.Model):
 
                         if open_invoice.invoice_id:  # for invoice
                             invoice_id = open_invoice.invoice_id
-                            invoice_id.with_context(ctx).js_assign_outstanding_line(move_line.id)
+                            invoice_id.with_context(ctx).assign_outstanding_credit(move_line.id)
                         else:  # for journal entry
                             mv_line_ids = [move_line.id, open_invoice.account_move_line_id.id]
                             self.env['account.reconciliation.widget'].with_context(ctx)\
@@ -182,25 +173,16 @@ class AccountPaymentUSA(models.Model):
         return res
 
     def _create_write_off(self):
-        # Handle write-off in Payment popup in Invoice/Bill form
-        # For invoice, create write-off transaction. For bill, create credit note.
-
-        if not self.env.context.get('active_model', False) == 'account.move':
-            return True
-
-        inv_obj = self.env['account.move']
+        inv_obj = self.env['account.invoice']
         invoices = inv_obj.browse(self.env.context.get('active_ids')).filtered(lambda x: x.state not in ['draft', 'cancel'])
 
         for payment in self:
             if payment.payment_writeoff_option == 'reconcile':
 
                 for inv in invoices:
-                    reconcile_account_id = inv.partner_id.property_account_receivable_id \
-                        if inv.is_sale_document(include_receipts=True) else inv.partner_id.property_account_payable_id
                     description = payment.writeoff_label
-                    refund = inv.create_refund(payment.payment_difference, payment.currency_id,
-                                               payment.writeoff_account_id, payment.payment_date,
-                                               description, inv.journal_id.id)
+                    refund = inv.create_refund(payment.payment_difference, payment.currency_id, payment.writeoff_account_id,
+                                               payment.payment_date, description, inv.journal_id.id)
 
                     # Put the reason in the chatter
                     subject = 'Write Off An Account'
@@ -208,14 +190,16 @@ class AccountPaymentUSA(models.Model):
                     refund.message_post(body=body, subject=subject)
 
                     # validate, reconcile and stay on invoice form.
-                    to_reconcile_lines = inv.line_ids.filtered(lambda line:
-                                                               line.account_id.id == reconcile_account_id.id)
-                    refund.action_post()  # validate write-off
-                    to_reconcile_lines += refund.line_ids.filtered(lambda line:
-                                                                   line.account_id.id == reconcile_account_id.id)
-                    to_reconcile_lines.filtered(lambda l: not l.reconciled).reconcile()
+                    to_reconcile_lines = inv.move_id.line_ids.filtered(lambda line:
+                                                                       line.account_id.id == inv.account_id.id)
+                    refund.action_invoice_open()  # validate write-off
+                    to_reconcile_lines += refund.move_id.line_ids.filtered(lambda line:
+                                                                           line.account_id.id == inv.account_id.id)
+                    to_reconcile_lines.filtered(lambda l: l.reconciled == False).reconcile()
 
     def action_validate_invoice_payment(self):
+        self._create_write_off()
+
         res = super(AccountPaymentUSA, self).action_validate_invoice_payment()
 
         for payment in self:
@@ -227,25 +211,36 @@ class AccountPaymentUSA(models.Model):
 
         return res
 
+    @api.multi
     def delete_payment(self):
         self.unlink()
         return {'type': 'ir.actions.client', 'tag': 'history_back'}
 
-    def action_draft(self):
-        super(AccountPaymentUSA, self.with_context(from_payment=self.ids)).action_draft()
-
-    def action_draft_usa(self):
-        self.ensure_one()
-        action = self.env.ref('l10n_us_accounting.action_view_button_set_to_draft_message').read()[0]
-        action['context'] = isinstance(action.get('context', {}), dict) or {}
-        action['context']['default_payment_id'] = self.id
-        return action
-
+    @api.multi
     def unlink(self):
-        if self.env.context.get('force_unlink', False):
-            for record in self:
-                record.move_name = False
+        if any(record.state not in ('draft', 'cancelled') for record in self):
+            raise UserError(
+                'You cannot delete payment which is not draft or canceled. Please cancel this payment first.')
+        for record in self:
+            record.move_name = False
         return super(AccountPaymentUSA, self).unlink()
+
+    # ADD OPEN INVOICES TO PAYMENT
+    @api.depends('open_invoice_ids', 'open_invoice_ids.payment')
+    def _get_total_payment(self):
+        for record in self:
+            payment_with_invoices = sum(inv.payment for inv in record.open_invoice_ids) \
+                if record.open_invoice_ids else 0
+
+            if record.state == 'draft' and record.outstanding_payment == 0:
+                record.amount = payment_with_invoices
+
+            record.payment_with_invoices = payment_with_invoices
+
+    @api.depends('amount', 'payment_with_invoices')
+    def _get_outstanding_payment(self):
+        for record in self:
+            record.outstanding_payment = record.amount - record.payment_with_invoices
 
     @api.depends('partner_id', 'currency_id')
     def _get_has_open_invoice(self):
@@ -274,22 +269,18 @@ class AccountPaymentUSA(models.Model):
                 domain = self._get_available_aml_domain(record, domain)
                 lines = self.env['account.move.line'].search(domain)
                 record.available_move_line_ids = [(6, 0, lines.ids)]
-            else:
-                record.available_move_line_ids = False
 
     def _get_available_aml_domain(self, record, domain=None):
         domain = domain if domain else []
-        partner_id = self.env['res.partner']._find_accounting_partner(record.partner_id)
-        domain.extend([
-            ('account_id', '=', record.destination_account_id.id),
-            ('reconciled', '=', False),
-            '|', ('partner_id', '=', partner_id.id), ('partner_id', '=', False),
-            '|', ('amount_residual', '!=', 0.0), ('amount_residual_currency', '!=', 0.0),
-            ('parent_state', '=', 'posted')
-        ])
+        domain.extend([('account_id', '=', record.destination_account_id.id),
+                       ('reconciled', '=', False),
+                       '|', ('partner_id', '=', self.env['res.partner']._find_accounting_partner(record.partner_id).id),
+                       ('partner_id', '=', False),
+                       '|', ('amount_residual', '!=', 0.0),
+                       ('amount_residual_currency', '!=', 0.0)])
 
         # Find aml that have same currency with payment
-        company_currency = record.company_id.currency_id if record.company_id else self.env.company.currency_id
+        company_currency = record.company_id.currency_id if record.company_id else self.env.user.company_id.currency_id
         if not record.currency_id == company_currency:
             domain.extend([('currency_id', '=', record.currency_id.id)])
         else:
@@ -306,31 +297,44 @@ class AccountPaymentUSA(models.Model):
     def _update_open_invoice_ids(self):
         self.open_invoice_ids = [(5,)]
 
-    # CHECK PRINTING
+    @api.multi
+    def cancel(self):
+        if all(payment_type == 'transfer' for payment_type in self.mapped('payment_type')):
+            # For Internal Transfer, we need to unreconciled before we do cancel
+            self.mapped('move_line_ids').remove_move_reconcile()
+
+        res = super(AccountPaymentUSA, self).cancel()
+        for record in self:
+            # reset all values + remove from batch deposit
+            record.write({'payment_with_invoices': 0,
+                          'outstanding_payment': 0,
+                          'amount': 0,
+                          'batch_deposit_id': False,
+                          'has_been_voided': False})
+            if record.open_invoice_ids:
+                record.open_invoice_ids.unlink()
+        return res
+
+    def action_void(self):
+        action = self.env.ref('account.action_view_account_move_reversal').read()[0]
+        return action
+
+    # Check Printing
     def _check_make_stub_line(self, invoice):
         res = super()._check_make_stub_line(invoice)
 
         # Get Credit/Discount Amount
-        credit_amount = other_payment_amount = 0
+        credit_amount = balance_due = 0
         amount_field = 'amount_currency' if self.currency_id != self.journal_id.company_id.currency_id else 'amount'
         # Looking for Vendor Credit Note in Vendor Bill
         if invoice.type in ['in_invoice', 'out_refund']:
             # This is for Vendor Bill only
-            credit_note_ids = invoice.line_ids.mapped('matched_debit_ids').filtered(
-                lambda r: r.debit_move_id.move_id.type == 'in_refund')
-            credit_amount = abs(sum(credit_note_ids.mapped(amount_field)))
-
-            # Calculate Other Payment amount
-            other_payment_ids = invoice.line_ids.mapped('matched_debit_ids').filtered(
-                lambda r: r.debit_move_id not in self.move_line_ids and r.id not in credit_note_ids.ids)
-            other_payment_amount = abs(sum(other_payment_ids.mapped(amount_field)))
-
-        # Update Amount Residual, BEFORE apply this check
-        amount_residual = invoice.amount_total - other_payment_amount
+            credit_partial_ids, balance_due = self._calculate_balance_due(invoice.move_id, amount_field, invoice.amount_total)
+            credit_amount = abs(sum(credit_partial_ids.mapped(amount_field)))
 
         res.update({'credit_amount': formatLang(self.env, credit_amount, currency_obj=invoice.currency_id),
-                    'amount_residual': formatLang(self.env, amount_residual,
-                                                  currency_obj=invoice.currency_id) if amount_residual * 10 ** 4 != 0 else '-'
+                    'amount_residual': formatLang(self.env, balance_due,
+                                                  currency_obj=invoice.currency_id) if balance_due * 10 ** 4 != 0 else '-'
                     })
 
         return res
@@ -338,10 +342,87 @@ class AccountPaymentUSA(models.Model):
     def _check_build_page_info(self, i, p):
         res = super()._check_build_page_info(i, p)
 
-        if self.partner_id.print_check_as and self.partner_id.check_name:
+        if self.partner_id.print_check_as:
             res['partner_name'] = self.partner_id.check_name
 
         return res
+
+    # Print Payment Receipts (with Credit memo)
+    def print_payment_receipts_with_credit(self):
+        return self.env.ref('l10n_us_accounting.action_report_payment_receipt_credit').report_action(self)
+
+    def _calculate_balance_due(self, move_id, amount_field, original_amt):
+        credit_partial_ids = move_id.line_ids.mapped('matched_debit_ids').filtered(
+            lambda r: r.debit_move_id.invoice_id and r.debit_move_id.invoice_id.type == 'in_refund')
+
+        # Calculate Other Payment amount
+        other_payment_ids = move_id.line_ids.mapped('matched_debit_ids').filtered(
+            lambda r: r.debit_move_id not in self.move_line_ids and r.id not in credit_partial_ids.ids)
+        other_payment_amount = abs(sum(other_payment_ids.mapped(amount_field)))
+
+        balance_due = original_amt - other_payment_amount
+        return credit_partial_ids, balance_due
+
+    def _get_payment_receipt_credit(self):
+        def _build_credit_note_lines(credits, credit_note_ids):
+            for line in credit_note_ids:
+                credit_id = line.debit_move_id.invoice_id
+                credits.append({'date': format_date(self.env, credit_id.date_due),
+                                'description': credit_id.number,
+                                'vendor_ref': credit_id.reference or "",
+                                'original_amt': "",
+                                'balance_due': "",
+                                'credit_amt': formatLang(self.env, -1 * line[amount_field], currency_obj=credit_id.currency_id),
+                                'payment_amt': "",
+                                })
+            return credits
+
+        # Return dictionary to render lines in payment receipts with credit report
+        self.ensure_one()
+
+        lines = []
+        credits = []
+        amount_field = 'amount_currency' if self.currency_id != self.journal_id.company_id.currency_id else 'amount'
+
+        # Get all transactions paid with this Bill:
+        # Bill: Debit AP => matched_credit_ids + credit_move_id
+        partial_lines = self.move_line_ids.mapped('matched_credit_ids').sorted(key=lambda r: r.max_date)
+
+        for line in partial_lines:
+            move_line = line.credit_move_id
+            payment_amt = abs(line[amount_field])
+
+            bill_id = move_line.invoice_id
+            if bill_id:
+                original_amt = bill_id.amount_total
+                credit_partial_ids, balance_due = self._calculate_balance_due(bill_id.move_id, amount_field, original_amt)
+                credits = _build_credit_note_lines(credits, credit_partial_ids)
+
+                lines.append({'date': format_date(self.env, bill_id.date_due),
+                              'description': bill_id.number,
+                              'vendor_ref': bill_id.reference or "",
+                              'original_amt': formatLang(self.env, original_amt, currency_obj=bill_id.currency_id),
+                              'balance_due': formatLang(self.env, balance_due, currency_obj=bill_id.currency_id),
+                              'credit_amt': "",
+                              'payment_amt': formatLang(self.env, payment_amt, currency_obj=bill_id.currency_id),
+                              })
+            else:
+                # Journal Item
+                move_id = move_line.move_id
+                original_amt = abs(move_line.balance)
+                credit_partial_ids, balance_due = self._calculate_balance_due(move_id, amount_field, original_amt)
+                credits = _build_credit_note_lines(credits, credit_partial_ids)
+
+                lines.append({'date': format_date(self.env, move_line.date_maturity),
+                              'description': move_id.name,
+                              'vendor_ref': move_id.ref or "",
+                              'original_amt': formatLang(self.env, original_amt,
+                                                         currency_obj=move_id.currency_id),
+                              'balance_due': formatLang(self.env, balance_due, currency_obj=move_id.currency_id),
+                              'credit_amt': "",
+                              'payment_amt': formatLang(self.env, payment_amt, currency_obj=move_id.currency_id),
+                              })
+        return lines + credits
 
     ####################################################
     # CRUD methods
@@ -351,10 +432,37 @@ class AccountPaymentUSA(models.Model):
         payment = super(AccountPaymentUSA, self).create(values)
         if not payment.ar_in_charge and payment.partner_id.ar_in_charge:
             payment.ar_in_charge = payment.partner_id.ar_in_charge
+
+        # If payment is created from a voucher, link them.
+        if values.get('voucher_id', False):
+            voucher = self.env['account.voucher'].browse(values['voucher_id'])
+            voucher.payment_id = payment.id
         return payment
 
+    @api.multi
+    def write(self, vals):
+        if 'show_transaction_response' not in vals:
+            vals['show_transaction_response'] = False
+
+        res = super(AccountPaymentUSA, self).write(vals)
+
+        for record in self:
+            if float_compare(record.amount, record.payment_with_invoices, precision_digits=2) < 0:
+                if record.payment_type == 'inbound':
+                    raise ValidationError(_('Invalid payment amount.\n'
+                                            'Payment amount should be equal or greater than '
+                                            'payment amount for all open invoices.'))
+                elif record.payment_type == 'outbound':
+                    raise ValidationError(_('Invalid payment amount.\n'
+                                            'Payment amount should be equal or greater than '
+                                            'payment amount for all open bills.'))
+        return res
+
+    @api.model_cr_context
     def _init_column(self, column_name):
-        if column_name == 'has_open_invoice':
+        if column_name not in ('has_open_invoice'):
+            super(AccountPaymentUSA, self)._init_column(column_name)
+        elif column_name == 'has_open_invoice':
             posted_payments = self.sudo().search([('state', 'not in', ['draft', 'cancelled']),
                                                   ('payment_type', '!=', 'transfer')])
 
@@ -378,6 +486,3 @@ class AccountPaymentUSA(models.Model):
             if query_list:
                 self.env.cr._obj.executemany(query, query_list)
                 self.env.cr.commit()
-
-        else:
-            super(AccountPaymentUSA, self)._init_column(column_name)

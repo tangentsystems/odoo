@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="assets_backend" name="Common" inherit_id="web.assets_backend">
+        <xpath expr="script[last()]" position="after">
+            <script type="text/javascript" src="/chatbot/static/src/js/thread_widget.js" />
+            <script type="text/javascript" src="/chatbot/static/src/js/account_report.js" />
+        </xpath>
+    </template>
+
+</odoo>

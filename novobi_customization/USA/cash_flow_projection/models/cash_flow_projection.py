@@ -51,16 +51,16 @@ class CashFlowProjection(models.TransientModel):
             month_spacing = 1
         # Calculate the start day and end date of the cycle
         today = fields.Date.today()
-        weekday = (today.weekday() + 1) % 7
-        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
+        start_date = self.get_start_date(week_spacing, month_spacing)
         # Create list of date range
         date_list = []
         due_transaction_options = self.env['cash.flow.transaction.type'].sudo().search(
             [('code', '=', 'past_due_transaction')])
+        due_transaction_limit = self.env.user.company_id.past_due_transaction_limit or 1
         if due_transaction_options and due_transaction_options.is_show and not options.get('from_chart', False):
             due_date = start_date - relativedelta(days=1)
             date_list.append({
-                'start_date': due_date - relativedelta(months=1),
+                'start_date': due_date - relativedelta(months=due_transaction_limit),
                 'end_date': due_date,
                 'period_order': -1,
                 'is_due_period': True,
@@ -155,6 +155,12 @@ class CashFlowProjection(models.TransientModel):
             'period_type': period_unit,
         }
         return rcontext, num_period, period_unit
+    
+    def get_start_date(self, week_spacing, month_spacing):
+        today = fields.Date.today()
+        weekday = (today.weekday() + 1) % 7
+        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
+        return start_date
     
     def _get_period_name(self, start_date, end_date, period_type, is_due_period):
         """
@@ -454,15 +460,14 @@ class CashFlowProjection(models.TransientModel):
         :return: string the selection statement
         """
         so_lead_time = self.env.user.company_id.customer_payment_lead_time
+        query_remaining_amount_so = self._query_remaining_amount_of_so(from_date, to_date, so_lead_time)
         query_so_lines = """
-             SELECT cast('sale_order' as text) as id, cast('Sales' as text) as name, so.amount_so_remaining as amount, so.name as account_name, TO_CHAR(so.date_order + interval '{}' day, 'mm/dd/yyyy') as date, so.id as line_id, so.id as account_id, rp.name as partner_name
-             FROM sale_order so LEFT JOIN res_partner rp ON so.partner_id = rp.id
-             WHERE state NOT IN ('draft', 'cancel')
-                            AND amount_so_remaining > 0
-                            AND cast((date_order + interval '{}' day) as date) >= '{}'
-                            AND cast((date_order + interval '{}' day) as date) <= '{}'
-                            AND so.company_id = {}
-        """.format(so_lead_time, so_lead_time, from_date, so_lead_time, to_date, self.env.user.company_id.id)
+             SELECT cast('sale_order' as text) as id, cast('Sales' as text) as name, so.amount_so_remaining as amount, so.name as account_name, TO_CHAR(so.confirmation_date + interval '{so_lead_time}' day, 'mm/dd/yyyy') as date, so.id as line_id, so.id as account_id, rp.name as partner_name
+             FROM ({remaining_amount}) so LEFT JOIN res_partner rp ON so.partner_id = rp.id
+             WHERE amount_so_remaining > 0
+                     AND cast((confirmation_date + interval '{so_lead_time}' day) as date) >= '{from_date}'
+                     AND cast((confirmation_date + interval '{so_lead_time}' day) as date) <= '{to_date}'
+        """.format(so_lead_time=so_lead_time, from_date=from_date, to_date=to_date, remaining_amount=query_remaining_amount_so)
         return query_so_lines
     
     def _query_ar_invoice_lines(self, from_date, to_date):
@@ -629,15 +634,14 @@ class CashFlowProjection(models.TransientModel):
         :return: string the selection statement
         """
         po_lead_time = self.env.user.company_id.vendor_payment_lead_time
+        query_remaining_amount = self._query_remaining_amount_of_po(from_date, to_date, po_lead_time)
         query_po_lines = """
-            SELECT cast('purchase_order' as text) as id, cast('Purchases' as text) as name, po.amount_so_remaining as amount, po.name as account_name, TO_CHAR(po.date_approve + interval '{}' day, 'mm/dd/yyyy') as date, po.id as line_id, po.id as account_id, rp.name as partner_name
-            FROM purchase_order po LEFT JOIN res_partner rp ON po.partner_id = rp.id
-            WHERE state NOT IN ('draft', 'cancel')
-                       AND amount_so_remaining > 0
-                       AND cast((date_approve + interval '{}' day) as date) >= '{}'
-                       AND cast((date_approve + interval '{}' day) as date) <= '{}'
-                       AND po.company_id = {}
-        """.format(po_lead_time, po_lead_time, from_date, po_lead_time, to_date, self.env.user.company_id.id)
+            SELECT cast('purchase_order' as text) as id, cast('Purchases' as text) as name, po.amount_so_remaining as amount, po.name as account_name, TO_CHAR(po.date_approve + interval '{po_lead_time}' day, 'mm/dd/yyyy') as date, po.id as line_id, po.id as account_id, rp.name as partner_name
+            FROM ({remaining_amount}) as po LEFT JOIN res_partner rp ON po.partner_id = rp.id
+            WHERE po.amount_so_remaining > 0
+                       AND cast((date_approve + interval '{po_lead_time}' day) as date) >= '{from_date}'
+                       AND cast((date_approve + interval '{po_lead_time}' day) as date) <= '{to_date}'
+        """.format(po_lead_time=po_lead_time, from_date=from_date, to_date=to_date, remaining_amount=query_remaining_amount)
         return query_po_lines
     
     def _query_ap_invoice_lines(self, from_date, to_date):
@@ -708,3 +712,57 @@ class CashFlowProjection(models.TransientModel):
                 null as partner_name
         """
         return query_other_lines
+    
+    def _query_remaining_amount_of_so(self, from_date, to_date, so_lead_time):
+        real_from_date = from_date - relativedelta(days=so_lead_time)
+        real_to_date = to_date - relativedelta(days=so_lead_time)
+        query = """
+            SELECT so.id, (so.amount_total - SUM(COALESCE(ainv.amount_total, 0))) as amount_so_remaining, so.amount_total, so.confirmation_date, so.partner_id, so.name
+            FROM (
+                    SELECT so.id, so.amount_total, so.confirmation_date, so.partner_id, so.name
+                    FROM sale_order so
+                    WHERE so.state = 'sale'
+                            AND so.confirmation_date IS NOT NULL
+                            AND CAST(so.confirmation_date as date) >= '{from_date}'
+                            AND CAST(so.confirmation_date as date) <= '{to_date}'
+                            AND so.company_id = {company_id}
+                ) as so
+                LEFT JOIN sale_order_line sol ON so.id = sol.order_id
+                LEFT JOIN sale_order_line_invoice_rel sinv ON sol.id = sinv.order_line_id
+                LEFT JOIN account_invoice_line ainvl ON sinv.invoice_line_id = ainvl.id
+                LEFT JOIN (
+                            SELECT id, amount_total
+                            FROM account_invoice
+                            WHERE state NOT IN ('draft', 'cancel')
+                                    AND type = 'out_invoice'
+                                    AND company_id = {company_id}
+                            ) ainv ON ainvl.invoice_id = ainv.id
+            GROUP BY so.id, so.amount_total, so.partner_id, so.confirmation_date, so.name
+        """.format(from_date=real_from_date, to_date=real_to_date, company_id=self.env.user.company_id.id)
+        return query
+    
+    def _query_remaining_amount_of_po(self, from_date, to_date, po_lead_time):
+        real_from_date = from_date - relativedelta(days=po_lead_time)
+        real_to_date = to_date - relativedelta(days=po_lead_time)
+        query = """
+            SELECT po.id, (po.amount_total - SUM(COALESCE(ainv.amount_total, 0))) as amount_so_remaining, po.amount_total, po.date_approve, po.partner_id, po.name
+            FROM (
+                    SELECT po.id, po.amount_total, po.date_approve, po.partner_id, po.name
+                    FROM purchase_order po
+                    WHERE po.state = 'purchase'
+                            AND po.date_approve IS NOT NULL
+                            AND CAST(po.date_approve as date) >= '{from_date}'
+                            AND CAST(po.date_approve as date) <= '{to_date}'
+                            AND po.company_id = {company_id}
+                ) as po
+                LEFT JOIN account_invoice_purchase_order_rel pinv ON po.id = pinv.purchase_order_id
+                LEFT JOIN (
+                            SELECT id, amount_total
+                            FROM account_invoice
+                            WHERE state NOT IN ('draft', 'cancel')
+                                    AND type = 'in_invoice'
+                                    AND company_id = {company_id}
+                            ) ainv ON pinv.account_invoice_id = ainv.id
+            GROUP BY po.id, po.amount_total, po.partner_id, po.date_approve, po.name
+        """.format(from_date=real_from_date, to_date=real_to_date, company_id=self.env.user.company_id.id)
+        return query

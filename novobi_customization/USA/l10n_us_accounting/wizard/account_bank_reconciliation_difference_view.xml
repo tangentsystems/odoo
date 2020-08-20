@@ -13,7 +13,7 @@
                     <field name="reconciliation_discrepancies_account_id" required="1"/>
                 </group>
                 <footer>
-                    <button string='Apply Adjustment and Finish' name="apply" type="object" class="btn-secondary"/>
+                    <button string='Apply Adjustment and Finish' name="apply" type="object" class="btn-default"/>
                     <button string="Go back" class="btn-primary" special="cancel"/>
                 </footer>
             </form>

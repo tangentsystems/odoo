@@ -91,9 +91,7 @@
                                            t-att-value="kpis[index].name"/>
                                 </t>
 
-                                <span>
-                                    <t t-esc="kpis[index].name"/>
-                                </span>
+                                <span><t t-esc="kpis[index].name"/></span>
                             </div>
                         </div>
                     </t>
@@ -120,12 +118,24 @@
 
     <t t-name="account_dashboard.ElementHeader">
         <div class="float-left card_item">
-            <div class="panel panel-custom">
-                <div class="panel-heading panel-background">
+            <div class="panel panel-custom"
+                 t-attf-style="border-color: #{value['color']};">
+                <div class="panel-heading"
+                     t-attf-style="background-color: #{value['color']};">
                     <div class="row">
-                        <div class="col-8 text-left">
+                        <div class="col-4">
+                            <img t-attf-src="#{value['icon']}"
+                                 class="img img-fluid"/>
+                        </div>
+                        <div class="col-8 text-right ignore-padding-left">
                             <div class="kpi_value" t-attf-title="#{value['value']}">
                                 <t t-esc="value['short_title']"/>
+                            </div>
+                            <div class="text_break kpi_name" t-attf-title="#{value['label']}">
+                                <t t-esc="value['label']"/>
+                            </div>
+                            <div class="text_period_type">
+                                <t t-esc="value['period_type']"/>
                             </div>
                         </div>
                     </div>
@@ -133,7 +143,7 @@
                         <div class="row comparison">
                             <div class="col-2 comparison_left">
                                 <img t-attf-src="#{value['trend']}"
-                                     class="img img-fluid img-kpi-trend"/>
+                                     class="img img-fluid"/>
                             </div>
                             <div class="col-10 text-left comparison_right">
                                 <div class="comparison_label text_break" t-attf-title="#{value['comparison_title']}">
@@ -142,25 +152,6 @@
                             </div>
                         </div>
                     </t>
-                    <t t-else="">
-                        <div class="row">
-                            <br/>
-                        </div>
-                    </t>
-                    <div class="row">
-                        <div class="col-8 text-left text-kpi-title">
-                            <div class="text_break kpi_name" t-attf-title="#{value['label']}">
-                                <t t-esc="value['label']"/>
-                            </div>
-                            <div class="text_period_type">
-                                <t t-esc="value['period_type']"/>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <img t-attf-src="#{value['icon']}"
-                                 class="img img-fluid img-kpi-tile"/>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

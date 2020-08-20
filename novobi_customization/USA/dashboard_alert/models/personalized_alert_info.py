@@ -42,6 +42,7 @@ class PersonalizedAlertInfo(models.Model):
     creator_id = fields.Many2one(related='alert_info_id.creator_id', store=False, readonly=True)
     is_creator = fields.Boolean(compute='_compute_current_user_id', store=False)
 
+    @api.multi
     def write(self, values):
         return super(PersonalizedAlertInfo, self).write(values)
 

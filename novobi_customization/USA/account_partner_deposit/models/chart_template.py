@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 from odoo import api, models, fields, _
 
@@ -14,6 +15,7 @@ class AccountChartTemplate(models.Model):
     #####
     ## These functions run when we install a new chart template 
     #####
+    @api.multi
     def _prepare_all_journals(self, acc_template_ref, company, journals_dict=None):
         res = super(AccountChartTemplate, self)._prepare_all_journals(
             acc_template_ref, company, journals_dict=journals_dict)
@@ -42,6 +44,7 @@ class AccountChartTemplate(models.Model):
 
         return res
 
+    @api.multi
     def generate_properties(self, acc_template_ref, company):
         res = super().generate_properties(acc_template_ref=acc_template_ref, company=company)
         PropertyObj = self.env['ir.property']

@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 from odoo import api, fields, models, _
 from datetime import date
@@ -8,11 +9,12 @@ from datetime import date
 class PrintPreNumberedChecks(models.TransientModel):
     _inherit = 'print.prenumbered.checks'
 
+    @api.multi
     def print_checks(self):
         if self.env.context.get('duplicate_confirm', False):
             return super(PrintPreNumberedChecks, self).print_checks()
 
-        check_number = int(self.next_check_number)
+        check_number = self.next_check_number
         max_number = check_number + len(self.env.context['payment_ids'])
         payments = self.env['account.payment'].browse(self.env.context['payment_ids'])
         first_date = date.today().replace(month=1, day=1)

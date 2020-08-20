@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 from odoo import fields, models
 from ..models.model_const import ACCOUNT_ACCOUNT

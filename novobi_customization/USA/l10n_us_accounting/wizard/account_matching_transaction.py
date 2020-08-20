@@ -1,0 +1,14 @@
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
+from odoo import models, fields, api
+
+
+class AccountMatchingBankStatementLine(models.TransientModel):
+    """Account Matching Bank Statement Line"""
+
+    _name = 'account.matching.bank.statement.line'
+    _inherit = 'account.bank.statement.line.matching.mixin'
+    _description = 'List all candidates that can be matched with a bank statement line'
+
+    selected_item = fields.Boolean(string='Select')

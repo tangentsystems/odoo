@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 import xlsxwriter
 import io
 import ast
 from odoo import models, api, _, fields
 from xlsxwriter import utility
-from dateutil import rrule
 from ..utils.budget_utils import get_list_period_by_type, _divide_line, format_number, _get_balance_sheet_value
 
 
@@ -74,18 +74,17 @@ class BudgetReport(models.AbstractModel):
 
         return lines
 
+    @api.multi
     def _get_dict_lines(self, children_lines, column_number, crossovered_budget, daterange_list,
-                        financial_report, currency_table, is_profit_budget, index_dict, actual_data_length):
+                        financial_report, currency_table, is_profit_budget):
         final_result_table = []
         AccountAccount = self.env['account.account']
         empty = [0.0 for i in range(column_number)]
         analytic_account_id = crossovered_budget.analytic_account_id
-        empty_actual_data = [0.0 for i in range(actual_data_length)]
 
         # build comparison table
         for line in children_lines:
             domain_ids = {}
-            actual_data = {}
             lines = []
             balance_sheet_dict = {}
             class_name = ' expense_budget' if not line.green_on_positive else ' income_budget'
@@ -119,14 +118,8 @@ class BudgetReport(models.AbstractModel):
             if line.domain:
                 edit_domain = line.domain.replace('account_id.', '')
                 domain_ids = sorted(AccountAccount.search(ast.literal_eval(edit_domain)).ids)
-
-                if is_profit_budget and daterange_list:
-                    # For Monthly, Quarterly, Yearly filter
-                    actual_data = self._get_actual_data(ast.literal_eval(line.domain), analytic_account_id,
-                                                        daterange_list, actual_data_length, index_dict)
-                else:
-                    balance_sheet_dict = _get_balance_sheet_value(line, financial_report, currency_table,
-                                                                  daterange_list, analytic_account_id)
+                balance_sheet_dict = _get_balance_sheet_value(line, financial_report, currency_table,
+                                                              daterange_list, analytic_account_id)
 
             for domain_id in domain_ids:
                 name = str(line._get_gb_name(domain_id))
@@ -150,14 +143,17 @@ class BudgetReport(models.AbstractModel):
                         columns.extend(result)
                 else:  # PROFIT & LOSS
                     if daterange_list:
-                        actual_list = actual_data.get(domain_id, empty_actual_data)
-                        actual_total = sum(actual_list)
-                        for index, daterange in enumerate(daterange_list):
+                        for daterange in daterange_list:
                             range_lines = budget_lines.filtered(lambda x: x.date_from >= daterange[0]
                                                                           and x.date_to <= daterange[1])
+
+                            practical_amount = sum([i.practical_amount for i in range_lines])
                             planned_amount_entry = sum([i.planned_amount_entry for i in range_lines])
+
+                            actual_total += practical_amount
                             budget_total += planned_amount_entry
-                            result = self._get_budget_value(actual_list[index], planned_amount_entry, line.green_on_positive)
+
+                            result = self._get_budget_value(practical_amount, planned_amount_entry, line.green_on_positive)
                             columns.extend(result)
                     else:
                         # Whole Budget, will show only Total column
@@ -197,7 +193,7 @@ class BudgetReport(models.AbstractModel):
 
             if len(lines) == 1:
                 new_lines = self._get_dict_lines(line.children_ids, column_number, crossovered_budget, daterange_list,
-                                                 financial_report, currency_table, is_profit_budget, index_dict, actual_data_length)
+                                                 financial_report, currency_table, is_profit_budget)
 
                 if new_lines and line.level > 0 and line.formulas:
                     divided_lines = _divide_line(lines[0], column_number, line)
@@ -215,57 +211,7 @@ class BudgetReport(models.AbstractModel):
 
         return final_result_table
 
-    @api.model
-    def _get_actual_data(self, domain, analytic_account_id, daterange_list, column_number, index_dict):
-        result_dict = {}
-
-        tables, where_clause, where_params = self.env['account.move.line'].with_context(
-            analytic_account_ids=analytic_account_id)._query_get(domain=domain)
-        sql_params = [daterange_list[0][0], daterange_list[-1][1]]
-        sql_params.extend(where_params)
-        sql_query = """
-                    SELECT "account_move_line".account_id as account_id, 
-                        date_part('year', "account_move_line".date::date) as year,
-                        date_part('month', "account_move_line".date::date) AS month,
-                        SUM("account_move_line".balance) as total_balance,
-                        SUM("account_move_line".debit) as debit,
-                        SUM("account_move_line".credit) as credit
-
-                    FROM "account_move" as "account_move_line__move_id","account_move_line" 
-
-                    WHERE ("account_move_line"."move_id"="account_move_line__move_id"."id") AND
-                        "account_move_line__move_id"."state" = 'posted' AND
-                        "account_move_line".date >= %s AND
-                        "account_move_line".date <= %s AND """ + where_clause + """
-                        GROUP BY account_id, year, month 
-                        ORDER BY account_id, year, month;
-                        """
-        self.env.cr.execute(sql_query, sql_params)
-        result = self.env.cr.dictfetchall()
-
-        if len(daterange_list) < 2:
-            # Yearly filter
-            for r in result:
-                account_balance = result_dict.get(r['account_id'], [0.0 for i in range(column_number)])
-                account_balance[0] += r['credit'] - r['debit']
-                result_dict[r['account_id']] = account_balance
-        else:
-            # Monthly, Quarterly filter
-            for r in result:
-                account_balance = result_dict.get(r['account_id'], [0.0 for i in range(column_number)])
-                time_index = str(int(r['month'])) + '-' + str(int(r['year']))
-                index = index_dict[time_index]
-                account_balance[index] = r['credit'] - r['debit']
-                result_dict[r['account_id']] = account_balance
-
-        return result_dict
-
-    def _create_index_dict(self, start_date, end_date):
-        index_dict = {}
-        for index, dt in enumerate(rrule.rrule(rrule.MONTHLY, dtstart=start_date, until=end_date)):
-            index_dict[str(dt.month) + '-' + str(dt.year)] = index
-        return index_dict
-
+    @api.multi
     def get_html(self, options, line_id=None, additional_context=None):
         if additional_context is None:
             additional_context = {}
@@ -280,16 +226,9 @@ class BudgetReport(models.AbstractModel):
         daterange_list = self._get_daterange_list(options, crossovered_budget)
         column_number = (len(daterange_list) + 1) * 4 if is_profit_budget else (len(daterange_list)) * 4
 
-        # to quickly get actual data
-        if daterange_list and is_profit_budget:
-            index_dict = self._create_index_dict(daterange_list[0][0], daterange_list[-1][1])
-        else:
-            index_dict = {}
-        actual_data_length = (len(daterange_list) + 1) if is_profit_budget else len(daterange_list) 
-
         # # get lines
         lines = self._get_dict_lines(financial_report.line_ids, column_number, crossovered_budget, daterange_list,
-                                     financial_report, currency_table, is_profit_budget, index_dict, actual_data_length)
+                                     financial_report, currency_table, is_profit_budget)
 
         # add more options
         options.update({
@@ -303,13 +242,13 @@ class BudgetReport(models.AbstractModel):
 
         additional_context.update({
             'crossovered_budget': crossovered_budget,
-            'currency_id': self.env.company.currency_id
+            'currency_id': self.env.user.company_id.currency_id
         })
 
         return super(BudgetReport, self).get_html(options, line_id=line_id,
                                                  additional_context=additional_context)
 
-    def get_xlsx(self, options):
+    def get_xlsx(self, options, response):
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         sheet = workbook.add_worksheet('Sheet 1')
@@ -378,10 +317,8 @@ class BudgetReport(models.AbstractModel):
 
         workbook.close()
         output.seek(0)
-        generated_file = output.read()
+        response.stream.write(output.read())
         output.close()
-
-        return generated_file
 
     # HELPER FUNCTION
     def _get_daterange_list(self, options, budget):
@@ -413,6 +350,7 @@ class BudgetReport(models.AbstractModel):
 
         return crossovered_budget
 
+    @api.multi
     def _get_unaffected_lines(self, children_lines, financial_report, currency_table,
                               daterange_list, analytic_account_id):
         """

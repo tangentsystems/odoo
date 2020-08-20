@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 import logging
 import ast
@@ -32,25 +33,27 @@ class Digest(models.Model):
             company = self._context.get('company')
             delta_periods = self._context.get('delta_periods')
             lines_dict = {}
-
             if company and type(delta_periods) is int:
                 dict_context = get_eval_context(self, 'kpi.journal')
                 data_kpi_usa_company_insight = {}
+
                 user_id = self.env.user.id
                 company_id = self.sudo().company_id.id
 
                 model_PKI = self.env['personalized.kpi.info']
                 model_PKI.generate_kpi_for_new_user(user_id, company.id)
-                kpis_info = model_PKI.search([
-                    ('user_id', '=', user_id),
-                    ('company_id', '=', company.id),
-                    ('selected', '=', True)
-                ])
-                data_kpi_usa_company_insight.setdefault(user_id, {})
 
+                kpis_info = model_PKI \
+                    .search([('user_id', '=', user_id),
+                             ('company_id', '=', company.id),
+                             ('selected', '=', True)])
+                data_kpi_usa_company_insight.setdefault(user_id, {})
                 for kpi in kpis_info:
                     kpi_info_detail = kpi.kpi_id
-                    start, end = get_start_end_date_value_with_delta(self, datetime.now(), kpi_info_detail.period_type, delta_periods)
+                    start, end = \
+                        get_start_end_date_value_with_delta(self, datetime.now(),
+                                                            kpi_info_detail.period_type, delta_periods)
+
                     dict_context['date_from'] = start
                     dict_context['date_to'] = end
 
@@ -68,8 +71,6 @@ class Digest(models.Model):
                         'period_type': dict(kpi_info_detail.periods_type).get(kpi_info_detail.period_type)
                     }
                 record.kpi_usa_company_insight_value = str(data_kpi_usa_company_insight)
-            else:
-                record.kpi_usa_company_insight_value = False
 
     ########################################################
     # GENERAL FUNCTION
@@ -98,13 +99,17 @@ class Digest(models.Model):
             previous_digest = self.with_context(start_date=tf[1][0], end_date=tf[1][1], company=company).sudo(user.id)
             kpis = {}
             for field_name, field in self._fields.items():
-                if field.type == 'boolean' and field_name.startswith(('kpi_', 'x_kpi_', 'x_studio_kpi_')) and self[field_name]:
+                if field.type == 'boolean' and \
+                        field_name.startswith(('kpi_', 'x_kpi_', 'x_studio_kpi_')) and \
+                        self[field_name]:
+
                     try:
                         if field_name.startswith("kpi_usa"):
                             field_name_value = kpi_usa_value_dict.setdefault(field_name, {})
                             if not field_name_value:
                                 digest_kpi_usa = self.with_context(company=company, delta_periods=0).sudo(user.id)
-                                previous_digest_kpi_usa = self.with_context(company=company, delta_periods=-1).sudo(user.id)
+                                previous_digest_kpi_usa = self.with_context(company=company, delta_periods=-1).sudo(
+                                    user.id)
                                 compute_value = digest_kpi_usa[field_name + '_value']
                                 previous_value = previous_digest_kpi_usa[field_name + '_value']
                                 field_name_value.update({
@@ -166,8 +171,8 @@ class Digest(models.Model):
 
     def compute_kpis_actions(self, company, user):
         res = super(Digest, self).compute_kpis_actions(company, user)
-        dashboard = self.env.ref('account_dashboard.menu_account_dashboard').id
-        res['kpi_usa_company_insight'] = 'account_dashboard.open_usa_journal_dashboard_kanban&menu_id={}'.format(dashboard)
+        res['kpi_usa_company_insight'] = 'account_dashboard.open_usa_journal_dashboard_kanban&menu_id=%s' % \
+                                         self.env.ref('account_dashboard.menu_account_dashboard').id
         return res
 
     def convert_to_name_module(self, name_field):

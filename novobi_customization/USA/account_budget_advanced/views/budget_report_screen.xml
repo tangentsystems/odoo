@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--HEADER TEMPLATE-->
     <template id="main_table_header_budget_report">

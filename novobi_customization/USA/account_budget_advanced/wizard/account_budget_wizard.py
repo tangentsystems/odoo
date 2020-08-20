@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 from odoo import fields, models, api, _
 from datetime import datetime, date, timedelta
@@ -24,14 +25,14 @@ class AccountBudgetWizard(models.TransientModel):
     analytic_account_id = fields.Many2one('account.analytic.account', 'Analytic Account')
     action_type = fields.Selection([('create', 'Create New Budget'), ('view', 'View Budget')], default='create')
 
-    _month_range = [(str(x), str(x)) for x in range(1, 13)]
-    start_month = fields.Selection(_month_range, string="Start Month", default='1')
-    end_month = fields.Selection(_month_range, string="End Month", default='12')
+    _month_range = [(x, str(x)) for x in range(1, 13)]
+    start_month = fields.Selection(_month_range, string="Start Month", default=1)
+    end_month = fields.Selection(_month_range, string="End Month", default=12)
 
     _this_year = datetime.today().year
-    _year_range = [(str(x), str(x)) for x in range(_this_year-1, _this_year+6)]
-    start_year = fields.Selection(_year_range, string="Start Year", default=str(_this_year+1))
-    end_year = fields.Selection(_year_range, string="End Year", default=str(_this_year+1))
+    _year_range = [(x, str(x)) for x in range(_this_year-1, _this_year+6)]
+    start_year = fields.Selection(_year_range, string="Start Year", default=_this_year+1)
+    end_year = fields.Selection(_year_range, string="End Year", default=_this_year+1)
 
     start_date = fields.Date(compute='_get_start_date', string='Start Date', store=True)
     end_date = fields.Date(compute='_get_end_date', string='End Date', store=True)
@@ -50,41 +51,29 @@ class AccountBudgetWizard(models.TransientModel):
     @api.depends('start_month', 'start_year', 'action_type', 'crossovered_budget_id')
     def _get_start_date(self):
         for record in self:
-            start_date = False
             if record.action_type == 'create':
                 if record.start_month and record.start_year:
-                    start_date = date(year=int(record.start_year), month=int(record.start_month), day=1)
+                    record.start_date = date(year=record.start_year, month=record.start_month, day=1)
             else:
                 if record.crossovered_budget_id:
-                    start_date = record.crossovered_budget_id.date_from
-
-            record.start_date = start_date
+                    record.start_date = record.crossovered_budget_id.date_from
 
     @api.depends('end_month', 'end_year', 'action_type', 'crossovered_budget_id')
     def _get_end_date(self):
         for record in self:
-            end_date = False
             if record.action_type == 'create':
                 if record.end_month and record.end_year:
-                    end_date = get_last_day_month(int(record.end_year), int(record.end_month))
+                    record.end_date = get_last_day_month(record.end_year, record.end_month)
             else:
                 if record.crossovered_budget_id:
-                    end_date = record.crossovered_budget_id.date_to
-
-            record.end_date = end_date
+                    record.end_date = record.crossovered_budget_id.date_to
 
     @api.depends('start_date', 'end_date', 'previous_data')
     def _get_previous_period(self):
         for record in self:
-            previous_start_date = False
-            previous_end_date = False
-
             if record.previous_data:
-                previous_start_date = record.start_date - relativedelta(years=1)
-                previous_end_date = record.end_date - relativedelta(years=1)
-
-            record.previous_start_date = previous_start_date
-            record.previous_end_date = previous_end_date
+                record.previous_start_date = record.start_date - relativedelta(years=1)
+                record.previous_end_date = record.end_date - relativedelta(years=1)
 
     @api.onchange('crossovered_budget_id')
     def _onchange_crossovered_budget_id(self):
@@ -168,9 +157,11 @@ class AccountBudgetWizard(models.TransientModel):
             'res_id': self.id,
         }
 
+    @api.multi
     def close_budget(self):
         return self.env.ref('account.open_account_journal_dashboard_kanban').read()[0]
 
+    @api.multi
     def delete_budget(self):
         self.ensure_one()
 

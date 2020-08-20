@@ -2,23 +2,12 @@ odoo.define('l10n_us_accounting.AmountSearchRange', function (require) {
     'use strict';
 
     var core = require('web.core');
-    var FiltersMenu = require('web.FilterMenu');
+    var search_inputs = require('web.search_inputs');
+    var FiltersMenu = require('web.FiltersMenu');
     var QWeb = core.qweb;
     var Dialog = require('web.Dialog');
     var Domain = require('web.Domain');
     var DropdownMenu = require('web.DropdownMenu');
-
-    DropdownMenu.include({
-        update: function (items) {
-            this.items = items.filter(function (item) {
-                if (item.context) {
-                    return item.context.help !== '__widget__';
-                }
-                return true;
-            });
-            this._renderMenuItems();
-        },
-    });
 
     FiltersMenu.include({
         events: _.extend({}, DropdownMenu.prototype.events, {
@@ -37,33 +26,29 @@ odoo.define('l10n_us_accounting.AmountSearchRange', function (require) {
             this.isNegativeChecking = true;
             var self = this;
 
-            if (filters.length !== 0) {
-                _.each(filters, function (item) {
-                    if (item.context && item.context.help === '__widget__') {
+            if (parent.filters.length !== 0) {
+                _.each(parent.filters[0].filters, function (item) {
+                    // Find a widget filter
+                    if (item.attrs['help'] === '__widget__') {
                         self.amountSearchRange = true;
                         self.custom_filters_open_amount = false;
-                        self.compared_field = item.context.name;
+                        self.compared_field = item.attrs['name'];
 
-                        if (item.context.hasOwnProperty('is_negative_checking')) {
-                            self.isNegativeChecking = item.context.is_negative_checking;
+                        var contextVariable = item.attrs['context'];
+                        if (contextVariable) {
+                            if (contextVariable.hasOwnProperty('is_negative_checking')) {
+                                self.isNegativeChecking = contextVariable.is_negative_checking;
+                            }
+
+                            if (contextVariable.hasOwnProperty('title_display')) {
+                                self.titleDisplay = contextVariable.title_display;
+                            }
                         }
-
-                        if (item.context.hasOwnProperty('title_display')) {
-                            self.titleDisplay = item.context.title_display;
-                        }
+                        return;
                     }
-                })
+                }, self);
             }
-
-            if (this.amountSearchRange === true) {
-                filters = filters.filter(function (item) {
-                    if (item.context) {
-                        return item.context.help !== '__widget__';
-                    }
-                    return true;
-                });
-            }
-
+            if(this.amountSearchRange === true){filters.shift();}
             this._super(parent, filters, fields);
         },
         start: function () {
@@ -81,7 +66,6 @@ odoo.define('l10n_us_accounting.AmountSearchRange', function (require) {
             this.$add_filter_menu_amount = this.$('.o_add_filter_menu_amount');
 
             // Open search by arrange by default
-            this.$add_filter_menu_amount.css('display', 'block');
             this.$('.o_add_filter_amount').click();
         },
         toggle_custom_filter_menu_amount: function (is_open) {
@@ -128,6 +112,7 @@ odoo.define('l10n_us_accounting.AmountSearchRange', function (require) {
         },
 
         commit_search_amount: function () {
+            var self = this;
             var min = parseFloat(this.$('#min_val').val());
             if (!this.validate_value(min, 'Min')) {
                 return;
@@ -144,16 +129,53 @@ odoo.define('l10n_us_accounting.AmountSearchRange', function (require) {
             }
 
             var filters = [{
-                type: 'filter',
-                description: 'Amount from "' + min.toString() + '" to "' + max.toString() + '"',
-                domain: Domain.prototype.arrayToString([
-                    [this.compared_field, '<=', max],
-                    [this.compared_field, '>=', min]
-                ])
+                'attrs': {
+                    'domain': [
+                        [this.compared_field, '<=', max],
+                        [this.compared_field, '>=', min]
+                    ],
+                    'modifiers': {},
+                    'string': 'Amount from "' + min.toString() + '" to "' + max.toString() + '"'
+                },
+                'children': [],
+                'tag': 'filter'
             }];
-            this.trigger_up('new_filters', {filters: filters});
-            _.invoke(this.propositions, 'destroy');
-            this.propositions = [];
+
+            // var filters_widgets = _.map(filters, function (filter) {
+            //         return new search_inputs.Filter(filter, this);
+            //     }),
+            //     filter_group = new search_inputs.FilterGroup(filters_widgets, this.searchview),
+            //     facets = filters_widgets.map(function (filter) {
+            //         return filter_group.make_facet([filter_group.make_value(filter)]);
+            //     });
+            _.each(filters, function (filter) {
+                filter.attrs.domain = Domain.prototype.arrayToString(filter.attrs.domain);
+            });
+            var groupId = _.uniqueId('__group__');
+            var data = [];
+            filters.forEach(function (filter) {
+                var filterName = _.uniqueId('__filter__');
+                var filterItem = {
+                    itemId: filterName,
+                    description: filter.attrs.string,
+                    groupId: groupId,
+                    isActive: true,
+                };
+                self._prepareItem(filterItem);
+                data.push({
+                    itemId: filterName,
+                    groupId: groupId,
+                    filter: filter,
+                });
+                self.items.push(filterItem);
+            });
+            this.trigger_up('new_filters', data);
+            // keep for later improvement
+            // filter_group.insertBefore(this.$add_filter_amount);
+            // $('<li class="divider"/>').insertBefore(this.$add_filter_amount);
+            // this.searchview.query.add(facets, {silent: true});
+            // this.searchview.query.trigger('reset');
+            this.toggle_custom_filter_menu_amount(true);
         },
 
         _showErrorMessage: function (message) {

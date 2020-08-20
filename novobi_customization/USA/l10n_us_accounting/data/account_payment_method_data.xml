@@ -22,5 +22,17 @@
             <field name="code">manual</field>
             <field name="payment_type">outbound</field>
         </record>
+
+        <record id="account_payment_method_ach_in" model="account.payment.method">
+            <field name="name">ACH</field>
+            <field name="code">manual</field>
+            <field name="payment_type">inbound</field>
+        </record>
+
+        <record id="account_payment_method_ach_out" model="account.payment.method">
+            <field name="name">ACH</field>
+            <field name="code">manual</field>
+            <field name="payment_type">outbound</field>
+        </record>
     </data>
 </odoo>
