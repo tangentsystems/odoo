@@ -54,6 +54,54 @@
 
 
     <!-- BALANCE SHEET -->
+    <!--&lt;!&ndash; ASSETS &ndash;&gt;-->
+    <!--<record id="account_reports.account_financial_report_total_assets0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="1" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_current_assets_view0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="2" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_bank_view0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_receivable0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_current_assets0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_prepayements0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+
+    <!--&lt;!&ndash; LIABILITY &ndash;&gt;-->
+    <!--<record id="account_financial_report_total_liabilities_and_equity0" model="account.financial.html.report.line">-->
+        <!--<field name="name">LIABILITIES AND EQUITY</field>-->
+        <!--<field name="code">TLE</field>-->
+        <!--<field name="financial_report_id" ref="account_reports.account_financial_report_balancesheet0"/>-->
+        <!--<field name="formulas">balance = L.balance + EQ.balance</field>-->
+        <!--<field name="sequence" eval="2"/>-->
+        <!--<field name="level" eval="1" />-->
+    <!--</record>-->
+
+    <!--<record id="account_reports.account_financial_report_liabilities_view0" model="account.financial.html.report.line">-->
+        <!--<field name="financial_report_id" ref=""/>-->
+        <!--<field name="parent_id" ref="account_financial_report_total_liabilities_and_equity0"/>-->
+        <!--<field name="level" eval="2" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_current_liabilities0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_current_liabilities1" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="4" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_current_liabilities_payable" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="4" />-->
+    <!--</record>-->
+    <!--<record id="account_reports.account_financial_report_non_current_liabilities0" model="account.financial.html.report.line">-->
+        <!--<field name="level" eval="3" />-->
+    <!--</record>-->
+
     <!-- EQUITY -->
     <record id="account_reports.account_financial_report_equity0" model="account.financial.html.report.line">
         <field name="formulas">balance = CURR_YEAR_EARNINGS_ALLOC.balance + CURR_YEAR_EARNINGS_PNL.balance + PREV_YEAR_EARNINGS.balance + RETAINED_EARNINGS.balance</field>
@@ -105,6 +153,17 @@
     </record>
     <record id="account_reports.account_financial_current_year_earnings0" model="account.financial.html.report.line">
         <field name="parent_id" ref=''/>
+    </record>
+
+
+    <!-- EXECUTIVE SUMMARY -->
+    <!--Net profit margin (net profit / income)-->
+    <record id="account_reports.account_financial_report_executivesummary_npmargin0" model="account.financial.html.report.line">
+        <field name="formulas">balance = NEP.balance / (OPINC.balance + OIN.balance)</field>
+    </record>
+
+    <record id="account_reports.account_financial_report_executivesummary_income0" model="account.financial.html.report.line">
+        <field name="formulas">balance = OPINC.balance + OIN.balance</field>
     </record>
 
 

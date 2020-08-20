@@ -23,6 +23,10 @@
         <!--Remove some header's section-->
         <div class="o_account_reports_summary" position="replace">
         </div>
+        <xpath expr='//t[@t-if="not options.get(&apos;multi_company&apos;)"]' position="replace">
+        </xpath>
+        <xpath expr='//t[@t-if="options.get(&apos;multi_company&apos;)"]' position="replace">
+        </xpath>
 
         <!--Button Section-->
         <div class="o_account_reports_header" position="after">

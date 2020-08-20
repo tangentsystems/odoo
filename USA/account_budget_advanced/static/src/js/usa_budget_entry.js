@@ -5,6 +5,7 @@ var core = require('web.core');
 var Dialog = require('web.Dialog');
 var framework = require('web.framework');
 var session = require('web.session');
+var crash_manager = require('web.crash_manager');
 var usa_budget = require('account_budget_advanced.usa_budget');
 
 var _t = core._t;

@@ -17,3 +17,4 @@ class ResCompany(models.Model):
     cash_flow_last_period_type = fields.Char(string='Last selected period',
                                              selection=[('day', 'Daily'), ('week', 'Weekly'), ('month', 'Monthly')],
                                              default='month', required=True)
+    past_due_transaction_limit = fields.Integer(string='Past Due Transaction Limitation', default=1)

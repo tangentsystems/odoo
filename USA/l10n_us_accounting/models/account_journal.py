@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -11,7 +12,7 @@ class AccountJournalUSA(models.Model):
 
     is_credit_card = fields.Boolean(string='Credit Card')
 
-    partner_id = fields.Many2one('res.partner', string='Vendor',
+    partner_id = fields.Many2one('res.partner', string='Vendor (Bank Name)',
                                 help='This contact will be used to record vendor bill and payment '
                                      'for credit card balance.',
                                 copy=False)
@@ -23,6 +24,10 @@ class AccountJournalUSA(models.Model):
         vals = super(AccountJournalUSA, self)._default_inbound_payment_methods()
         return vals + self.env.ref('payment.account_payment_method_electronic_in')
 
+    update_posted = fields.Boolean(default=True, string='Allow Cancelling Entries',
+                                   help='Check this box if you want to allow the cancellation the entries related to '
+                                        'this journal or of the invoice related to this journal')
+
     write_off_sequence_id = fields.Many2one('ir.sequence', string='Credit Note Entry Sequence',
                                             help='This field contains the information related to the numbering of '
                                                  'the write off entries of this journal.',
@@ -33,6 +38,7 @@ class AccountJournalUSA(models.Model):
                                                     compute='_compute_write_off_seq_number_next',
                                                     inverse='_inverse_write_off_seq_number_next')
 
+    @api.multi
     # do not depend on 'write_off_sequence_id.date_range_ids', because
     # write_off_sequence_id._get_current_sequence() may invalidate it!
     @api.depends('write_off_sequence_id.use_date_range', 'write_off_sequence_id.number_next_actual')
@@ -48,6 +54,7 @@ class AccountJournalUSA(models.Model):
             else:
                 journal.write_off_sequence_number_next = 1
 
+    @api.multi
     def _inverse_write_off_seq_number_next(self):
         """
         Inverse 'write_off_sequence_number_next' to edit the current sequence next number.
@@ -57,6 +64,7 @@ class AccountJournalUSA(models.Model):
                 sequence = journal.write_off_sequence_id._get_current_sequence()
                 sequence.number_next = journal.write_off_sequence_number_next
 
+    @api.multi
     def write(self, vals):
         result = super(AccountJournalUSA, self).write(vals)
 
@@ -100,7 +108,7 @@ class AccountJournalUSA(models.Model):
             vals['write_off_sequence_id'] = self.sudo()._create_write_off_sequence(vals).id
 
         if vals.get('is_credit_card'):
-            company_id = vals.get('company_id', self.env.company.id)
+            company_id = vals.get('company_id', self.env.user.company_id.id)
             # Create a default debit/credit account if not given
             default_account = vals.get('default_debit_account_id') or vals.get('default_credit_account_id')
             if not default_account:
@@ -136,6 +144,12 @@ class AccountJournalUSA(models.Model):
             sequence_obj.prefix = sequence_obj.prefix.replace(old_pattern, new_pattern)
 
     @api.model
+    def auto_allow_cancelling_entries(self):
+        journals = self.env[ACCOUNT_JOURNAL].sudo().search([])
+        for journal in journals:
+            journal.update_posted = True
+
+    @api.model
     def create_write_off_sequences(self, account_journal_name, account_journal_code, write_off_sequence_number_next,
                                    code):
         # only create this config at the first time when install or upgrade module
@@ -153,6 +167,7 @@ class AccountJournalUSA(models.Model):
             }
             journal.write_off_sequence_id = self._create_write_off_sequence(journal_vals).id
 
+    @api.multi
     def open_action_with_context(self):
         action = super(AccountJournalUSA, self).open_action_with_context()
 

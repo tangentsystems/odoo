@@ -39,6 +39,7 @@ class InheritedResUsers(models.Model):
     ########################################################
     # COMPUTED FUNCTIONS
     ########################################################
+    @api.multi
     @api.depends('channel_rec_mes_ids')
     def _compute_channel_info(self):
         print('_compute_channel_info')
@@ -100,11 +101,13 @@ class InheritedResUsers(models.Model):
     ########################################################
     # BUTTON EVENT
     ########################################################
+    @api.multi
     def show_contact_form(self):
         partner = self.env.user.partner_id
         channels_contact = self.env['alert.channel'].search([]).mapped('channel_code')
         return self._get_action_partner_contact(partner, channels_contact)
 
+    @api.multi
     def preference_save(self):
         res = super(InheritedResUsers, self).preference_save()
         for user in self:

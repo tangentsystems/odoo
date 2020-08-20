@@ -1,24 +1,24 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from .time_utils import BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, \
-    get_start_end_date_value_with_delta, get_same_date_delta_period, get_list_period_by_type
+    get_start_end_date_value_with_delta, \
+    get_same_date_delta_period
 
 
-def get_json_render(data_type, extend, label, data_render,
+def get_json_render(data_type, extend, data_render,
                     name_card, selection, function_retrieve,
-                    extra_param, setting={}):
-    return [{
+                    extra_param, currency_id, extra_graph_setting={}):
+    return {
         'function_retrieve': function_retrieve,
         'data_type': data_type,
         'extend': extend,
-        'label': label,
-        'data': data_render,
+        'data_render': data_render,
         'name': name_card,
         'selection': selection,
         'extra_param': extra_param,
-        'setting': setting
-    }]
-
+        'extra_graph_setting': extra_graph_setting,
+        'currency_id': currency_id,
+    }
 
 def get_json_data_for_selection(self, selection, periods, default_selection):
     """ Function return json setting for fields selection time, that defined
@@ -55,6 +55,30 @@ def get_json_data_for_selection(self, selection, periods, default_selection):
         selection.append(period_selection)
 
 
+def push_to_list_lists_at_timestamp(lists, values, list_time_name, format):
+    for (idx, list) in enumerate(lists):
+        push_to_list_values_at_timestamp(list, values[idx], list_time_name, format)
+
+def push_to_list_values_at_timestamp(list, value, list_time_name, period_type, x=None):
+    name = get_chart_point_name(list_time_name, period_type)
+    list.append({
+        'x': x or len(list),
+        'y': value,
+        'name': name
+    })
+
+def push_to_list_values_to_sales(past_sale_values,
+                                 future_sale_values, value, index,
+                                 list_time_name, period_type, x=None):
+    if list_time_name[0] <= date.today():
+        push_to_list_values_at_timestamp(
+            past_sale_values, value,
+            list_time_name, period_type, x=index)
+    if list_time_name[1] >= date.today():
+        push_to_list_values_at_timestamp(
+            future_sale_values, value,
+            list_time_name, period_type, x=index)
+
 def get_chart_point_name(list_time_name, period_type):
     """ Function support return the label that will show on each point in chart
      base on list_time_name value and type of period defined in period_type
@@ -84,72 +108,3 @@ def get_chart_point_name(list_time_name, period_type):
             name = date_point.strftime('%Y')
 
     return name
-
-
-def get_data_for_graph(self, date_from, date_to, period_type, data_group, fields=[], date_field='date_in_period', pos=1):
-    """
-    Used in retrieve_profit_and_loss(), to pass data from data_group and return graph data.
-    :param self: usa.journal record
-    :param date_from:
-    :param date_to:
-    :param period_type:
-    :param data_group:
-    :param fields: list contains name of fields to get data from data_group
-    :param date_field:
-    :param pos: to determine that value is negative or positive
-    :return: (
-        summarize: to use in info_data
-        list_data_return: list to use in graph_data
-        graph_label: list of labels to pass to get_chart_json()
-    )
-    """
-    index_period = 0
-    length = len(fields)
-    list_data_return = []
-    summarize = []
-    graph_label = []
-
-    if length:
-        periods = get_list_period_by_type(self, date_from, date_to, period_type)
-        list_zero_value = [0 for i in range(length)]
-        list_data_return = [[] for i in range(length)]
-        summarize = list_zero_value.copy()
-
-        for data in data_group:
-            list_data_value = [data[key] * pos for key in fields]
-            while not (periods[index_period][0] <= data[date_field] <= periods[index_period][1]) and index_period < len(periods):
-                for item in list_data_return:
-                    item.append(0)
-                graph_label.append(get_chart_point_name(periods[index_period], period_type))
-                index_period += 1
-            if index_period < len(periods):
-                for i in range(length):
-                    list_data_return[i].append(list_data_value[i])
-                graph_label.append(get_chart_point_name(periods[index_period], period_type))
-                summarize = [sum(x) for x in zip(summarize, list_data_value)]
-                index_period += 1
-
-        while index_period < len(periods):
-            for item in list_data_return:
-                item.append(0)
-            graph_label.append(get_chart_point_name(periods[index_period], period_type))
-            index_period += 1
-
-    return summarize, list_data_return, graph_label
-
-
-def append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=None):
-    """
-    For each data from data_fetch, append its to data_list and graph_label
-    :param data_list: list to use in graph_data
-    :param graph_label: list of labels to pass to get_chart_json()
-    :param periods: list of periods
-    :param period_type:
-    :param index: from 0 to len(periods)
-    :param values: values to put to data_list. If len(data_list) = n, default of values will be a list contains n zero.
-    """
-    length = len(data_list)
-    values = values or [0] * length
-    for i in range(length):
-        data_list[i].append(values[i])
-    graph_label.append(get_chart_point_name(periods[index], period_type))

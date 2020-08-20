@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 
@@ -20,16 +21,16 @@ class PaymentDeposit(models.Model):
                                                                               ('deprecated', '=', False), ('reconcile', '=', True)])
     deposit_ids = fields.Many2many('account.move', string='Deposit Entries')
 
+    @api.one
     @api.depends('invoice_ids', 'payment_type', 'partner_type', 'partner_id')
     def _compute_destination_account_id(self):
-        deposit_payments = self.filtered('is_deposit')
-        for record in deposit_payments:
-            if record.partner_type == 'customer':
-                record.destination_account_id = record.property_account_customer_deposit_id.id
+        if self.is_deposit:
+            if self.partner_type == 'customer':
+                self.destination_account_id = self.property_account_customer_deposit_id.id
             else:
-                record.destination_account_id = record.property_account_vendor_deposit_id.id
-
-        super(PaymentDeposit, self - deposit_payments)._compute_destination_account_id()
+                self.destination_account_id = self.property_account_vendor_deposit_id.id
+        else:
+            super(PaymentDeposit, self)._compute_destination_account_id()
 
     @api.onchange('partner_id')
     def _update_default_deposit_account(self):
@@ -39,12 +40,13 @@ class PaymentDeposit(models.Model):
             elif self.partner_id.property_account_vendor_deposit_id and self.partner_type == 'supplier':
                 self.property_account_vendor_deposit_id = self.partner_id.property_account_vendor_deposit_id.id
 
-    def _compute_payment_amount(self, invoices, currency, journal, date):
+    @api.multi
+    def _compute_payment_amount(self, invoices=None, currency=None):
         # Get default amount when create deposit from SO/PO
         if self.env.context.get('default_amount', False) and self.env.context.get('default_is_deposit', False):
             return self.env.context['default_amount']
         else:
-            return super(PaymentDeposit, self)._compute_payment_amount(invoices, currency, journal, date)
+            return super(PaymentDeposit, self)._compute_payment_amount(invoices, currency)
 
     def _onchange_partner_order_id(self, order_field, state):
         # Helper function to be used in onchange for SO/PO
@@ -67,25 +69,3 @@ class PaymentDeposit(models.Model):
             partner_id = self.env['res.partner']._find_accounting_partner(payment.partner_id).id
             if payment[order_field] and payment[order_field].partner_id.commercial_partner_id.id != partner_id:
                 raise ValidationError(_("The %s's customer does not match with the deposit's.") % model_name)
-
-    def action_draft(self):
-        super().action_draft()
-
-        # Cancel, remove deposit from invoice and delete deposit moves
-        moves = self.mapped('deposit_ids')
-        moves.filtered(lambda move: move.state == 'posted').button_draft()
-        moves.with_context(force_delete=True).unlink()
-
-    @api.depends('partner_id', 'currency_id')
-    def _get_has_open_invoice(self):
-        """
-        override
-        :return:
-        """
-        for record in self:
-            record.has_open_invoice = False
-
-            if record.is_deposit:
-                continue
-
-            super(PaymentDeposit, record)._get_has_open_invoice()

@@ -5,7 +5,7 @@
         <template id="template_usa_bank_reconciliation" inherit_id="account_reports.main_template" primary="True">
             <!--Sort Table-->
             <xpath expr="//table/.." position="attributes">
-                <attribute name="class">table-responsive table-reconciliation</attribute>
+                <attribute name="class">table-responsive</attribute>
             </xpath>
 
             <xpath expr="//div[hasclass('o_account_reports_page')]" position="attributes">
@@ -13,24 +13,27 @@
                 <attribute name="class">container-fluid o_account_reports_page o_account_reports_no_print</attribute>
             </xpath>
 
-            <xpath expr="//div[hasclass('o_account_reports_header')]" position="attributes">
-                <attribute name="class">o_account_reports_header usa_bank_reconciliation</attribute>
-            </xpath>
-
             <xpath expr="//table[hasclass('o_account_reports_table')]" position="replace">
-                <table id="aml_table" class="o_account_reports_table table-sorter">
+                <table id="aml_table" class="o_account_reports_table tablesorter">
                     <thead>
-                        <tr>
-                            <t t-foreach="lines.get('columns_header')[0]" t-as="column_header">
-                                <th>
-                                    <span>
-                                        <t t-if="column_header_first">Number</t>
-                                        <t t-elif="column_header_last"/>
-                                        <t t-else=""><t t-raw="column_header.get('name')"/></t>
-                                    </span>
+                        <t t-foreach="lines.get('columns_header')[0]" t-as="column_header">
+                            <t t-if="column_header_first">
+                                <th t-att-class="'reconcile_th_' + str(column_header_index) + ' o_account_report_column_header ' + (column_header.get('class', ''))">
+                                    Number
                                 </th>
                             </t>
-                        </tr>
+                            <t t-else="">
+                                <th t-att-class="'reconcile_th_' + str(column_header_index) + ' o_account_report_column_header ' + (column_header.get('class', ''))"
+                                    t-att-style="column_header.get('style', '')">
+                                    <t t-if="column_header_last">
+                                        <!--<input type="checkbox" name="checkbox_all"/>-->
+                                    </t>
+                                    <t t-else="">
+                                        <t t-raw="column_header.get('name')"/>
+                                    </t>
+                                 </th>
+                            </t>
+                        </t>
                     </thead>
 
                     <tbody>
@@ -80,8 +83,8 @@
                 </div>
                 <div class="row mb8">
                     <div style="margin-left: 9%;">
-                        <strong><span id="no_payments"/> Cleared Payments:</strong> <span id="cleared_payments"/><br/>
-                        <strong><span id="no_deposits"/> Cleared Deposits:</strong> <span id="cleared_deposits"/>
+                        <span id="no_payments"/> <strong>Cleared Payments:</strong> <span id="cleared_payments"/><br/>
+                        <span id="no_deposits"/> <strong>Cleared Deposits:</strong> <span id="cleared_deposits"/>
                     </div>
                 </div>
             </xpath>
@@ -105,22 +108,19 @@
             </xpath>
 
             <xpath expr="//span[hasclass('o_account_report_column_value')]" position="replace">
-                <span class="o_account_report_column_value">
+                <span class="'o_account_report_column_value'"
+                      t-att-title="column.get('title', '')">
                     <t t-if="column.get('blocked') != None">
                         <input t-if="column['blocked'] == False" type="checkbox" name="blocked"
                                t-att-value="column['blocked']" t-att-debit="column['debit']"
                                t-att-credit="column['credit']"
                                t-att-checkbox-model="line['model']"
-                               t-att-checkbox-id="line['id']"
-                               class="report-checkbox"
-                        />
+                               t-att-checkbox-id="line['id']"/>
                         <input t-if="column['blocked'] != False" type="checkbox" name="blocked"
                                t-att-value="column['blocked']" t-att-debit="column['debit']"
                                t-att-credit="column['credit']" checked="checked"
                                t-att-checkbox-model="line['model']"
-                               t-att-checkbox-id="line['id']"
-                               class="report-checkbox"
-                        />
+                               t-att-checkbox-id="line['id']"/>
                     </t>
                     <t t-if="column.get('blocked') == None">
                         <t t-raw="column.get('name')"/>
@@ -129,10 +129,10 @@
             </xpath>
 
             <xpath expr="//div[hasclass('o_account_reports_domain_dropdown')]/*[last()]" position="before">
-<!--                <li t-if="line['caret_options'] == 'account.batch.payment'">-->
-<!--                    <a role="menuitem" tabindex="-1" t-att-data-id="line['id']" data-object="account.batch.payment"-->
-<!--                       action="open_batch_deposit_document" class="dropdown-item">View Batch Payment</a>-->
-<!--                </li>-->
+                <li t-if="line['caret_options'] == 'account.batch.payment'">
+                    <a role="menuitem" tabindex="-1" t-att-data-id="line['id']" data-object="account.batch.payment"
+                       action="open_batch_deposit_document" class="dropdown-item">View Batch Payment</a>
+                </li>
                 <li t-if="line['caret_options'] in ['account.move', 'account.invoice.in', 'account.invoice.out', 'account.payment']">
                     <a role="menuitem" tabindex="-1" t-att-data-id="line['id']" action="open_document"
                        groups="account.group_account_user" class="dropdown-item">View Journal Entry</a>

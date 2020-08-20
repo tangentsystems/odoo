@@ -38,6 +38,7 @@
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">account.record.ending.balance</field>
         <field name="view_mode">form</field>
+        <field name="view_type">form</field>
         <field name="view_id" ref="view_record_ending_balance_form"/>
         <field name="target">new</field>
     </record>

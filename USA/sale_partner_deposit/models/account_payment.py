@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 from odoo import api, fields, models, _
 
 
@@ -13,6 +14,7 @@ class PaymentDeposit(models.Model):
         if self.payment_type == 'inbound':
             return self._onchange_partner_order_id('sale_deposit_id', ['sale'])
 
+    @api.multi
     def post(self):
         # Check one last time before Validate. Not gonna happen.
         self._validate_order_id('sale_deposit_id', 'Sale Order')

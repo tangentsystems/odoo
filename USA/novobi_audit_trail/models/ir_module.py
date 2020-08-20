@@ -11,6 +11,7 @@ from odoo import models, fields, api, _
 class Module(models.Model):
     _inherit = 'ir.module.module'
     
+    @api.multi
     def module_uninstall(self):
         # Unlink all action windows using for viewing audit logs
         for module_to_remove in self:

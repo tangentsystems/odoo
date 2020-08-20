@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT
@@ -10,40 +11,28 @@ class PurchaseOrderUSA(models.Model):
 
     billable_expenses_ids = fields.One2many('billable.expenses', 'purchase_id')  # correspond with each purchase line
 
-    def _get_expense_popup(self):
+    def open_expense_popup(self):
+        # check if expense has been created for a bill line yet?
+        expense_ids = set(expense.purchase_line_id.id for expense in self.billable_expenses_ids)
+        for line in self.order_line:
+            if line.id not in expense_ids:
+                date = datetime.strptime(fields.Datetime.to_string(self.date_order), DEFAULT_SERVER_DATETIME_FORMAT)
+                self.env['billable.expenses'].sudo().create({'purchase_id': self.id,
+                                                             'purchase_line_id': line.id,
+                                                             'description': line.name,
+                                                             'amount': line.price_subtotal,
+                                                             'bill_date': date})
+        # open popup
         view_id = self.env.ref('purchase_billable_expense.purchase_assign_expense_popup_form').id
         return {
             'name': 'Assign a customer to any billable expense',
             'type': 'ir.actions.act_window',
             'view_mode': 'form',
-            'res_model': self._name,
+            'res_model': 'purchase.order',
             'target': 'new',
             'res_id': self.id,
             'view_id': view_id,
         }
-
-    def open_expense_popup(self):
-        self.ensure_one()
-        purchase_line_ids = self.billable_expenses_ids.mapped('purchase_line_id')
-        expense_env = self.env['billable.expenses'].sudo()
-
-        for line in self.order_line - purchase_line_ids:
-            if line.invoice_lines and line.invoice_lines.mapped('billable_expenses_ids'):
-                line.invoice_lines.mapped('billable_expenses_ids').write({
-                    'purchase_id': self.id,
-                    'purchase_line_id': line.id
-                })
-            else:
-                date = datetime.strptime(fields.Datetime.to_string(self.date_order), DEFAULT_SERVER_DATETIME_FORMAT)
-                expense_env.create({
-                    'purchase_id': self.id,
-                    'purchase_line_id': line.id,
-                    'description': line.name,
-                    'amount': line.price_subtotal,
-                    'bill_date': date
-                })
-
-        return self._get_expense_popup()
 
     def assign_customer(self):
         return {'type': 'ir.actions.act_window_close'}
@@ -65,26 +54,25 @@ class PurchaseOrderLineUSA(models.Model):
     usa_description = fields.Text('Description', compute='_get_usa_description',
                                   inverse='_set_usa_description', store=True)
     billable_expenses_ids = fields.One2many('billable.expenses', 'purchase_line_id')  # only one record, for PO
-    invoiced_to_id = fields.Many2one('account.move', compute='_get_usa_description', store=True)
+    invoiced_to_id = fields.Many2one('account.invoice', compute='_get_usa_description', store=True)
 
     @api.depends('name', 'billable_expenses_ids', 'billable_expenses_ids.customer_id',
                  'billable_expenses_ids.is_outstanding', 'state')
     def _get_usa_description(self):
         for record in self:
             record.usa_description = record.name
-            invoiced_to_id = False
 
             if record.state in ['purchase', 'done']:
                 if record.billable_expenses_ids and record.billable_expenses_ids[0].customer_id:
                     expense = record.billable_expenses_ids[0]
                     if not expense.is_outstanding:  # already invoiced
-                        invoiced_to_id = expense.invoice_line_id.move_id
-                        bill_text = '\nInvoiced to {}\n{}'.format(expense.customer_id.name, invoiced_to_id.name)
+                        record.invoiced_to_id = expense.invoice_line_id.invoice_id
+                        bill_text = '\nInvoiced to %s\n%s' % \
+                                    (expense.customer_id.name, record.invoiced_to_id.number)
+                        record.usa_description = record.name + bill_text
                     else:
-                        bill_text = '\nBillable expense for {}'.format(expense.customer_id.name)
-                    record.usa_description = record.name + bill_text
-
-            record.invoiced_to_id = invoiced_to_id
+                        bill_text = '\nBillable expense for %s' % expense.customer_id.name
+                        record.usa_description = record.name + bill_text
 
     def _set_usa_description(self):
         for record in self:
@@ -101,11 +89,11 @@ class PurchaseOrderLineUSA(models.Model):
                 record.name = record.usa_description
 
     def open_invoice_expense(self):
-        view_id = self.env.ref('account.view_move_form').id
+        view_id = self.env.ref('account.invoice_form').id
         return {
             'type': 'ir.actions.act_window',
             'view_mode': 'form',
-            'res_model': 'account.move',
+            'res_model': 'account.invoice',
             'target': 'current',
             'res_id': self.invoiced_to_id.id,
             'view_id': view_id,

@@ -77,6 +77,14 @@
                                 <field name="ending_balance"/>
                             </div>
                         </div>
+                        <!--<div>-->
+                            <!--<div class="col-8 offset-1">-->
+                                <!--<span>Uncleared Transactions as of </span><field name="statement_ending_date"/>-->
+                            <!--</div>-->
+                            <!--<div class="col-2 text-right">-->
+                                <!--<field name="uncleared_amount"/>-->
+                            <!--</div>-->
+                        <!--</div>-->
                         <div class="row">
                             <div class="col-8 offset-1">
                                 <span>Uncleared Payments as at </span><field name="statement_ending_date"/>
@@ -95,7 +103,7 @@
                         </div>
                         <div class="row">
                             <div class="col-8 offset-1">
-                                <span>Register Balance as of </span><field name="statement_ending_date"/>
+                                <span>Register Balance as at </span><field name="statement_ending_date"/>
                             </div>
                             <div class="col-2 text-right">
                                 <field name="register_balance"/>
@@ -161,6 +169,7 @@
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">account.bank.reconciliation.data</field>
         <field name="view_mode">tree,form</field>
+        <field name="view_type">form</field>
         <field name="view_id" ref="reconciliation_data_tree"/>
         <field name="domain">[('journal_id', '=', active_id), ('state', '=', 'reconciled')]</field>
     </record>
@@ -169,7 +178,7 @@
     <record id="bank_reconciliation_data_popup_form" model="ir.ui.view">
         <field name='name'>bank_reconciliation_data_popup_form</field>
         <field name='model'>account.bank.reconciliation.data</field>
-        <field name="priority">50</field>
+        <field name="sequence">50</field>
         <field name="arch" type="xml">
             <form string="Begin Reconciliation">
                 <group>
@@ -203,7 +212,7 @@
                         confirm="Are you sure you want to undo previous reconciliation?"
                             invisible="context.get('edit_info', False)"
                             attrs="{'invisible': [('previous_reconciliation_id', '=', False)]}"/>
-                    <button string="Cancel" special="cancel"/>
+                    <button string="Cancel" class="btn-default" special="cancel"/>
                 </footer>
             </form>
         </field>
@@ -241,6 +250,7 @@
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">account.bank.reconciliation.data</field>
         <field name="view_mode">form</field>
+        <field name="view_type">form</field>
         <field name="view_id" ref="bank_reconciliation_data_form"/>
         <field name="target">main</field>
     </record>

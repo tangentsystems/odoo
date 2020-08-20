@@ -1,43 +1,44 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 import json
 import random
 import re
 import ast
-from datetime import datetime, date
-from dateutil.relativedelta import relativedelta
 
+from ..utils.graph_utils import get_json_render, get_json_data_for_selection, push_to_list_lists_at_timestamp, \
+    push_to_list_values_to_sales
 from odoo import api, fields, models, _
 from odoo.osv import expression
+from odoo.tools import float_is_zero
 
-from ...l10n_custom_dashboard.utils.graph_setting import get_chartjs_setting, get_linechart_format, get_barchart_format, get_info_data, get_chart_json
-from ..utils.graph_utils import get_json_render, get_json_data_for_selection, get_data_for_graph, append_data_fetch_to_list
-from ..utils.time_utils import get_list_period_by_type, get_start_end_date_value, BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, BY_FISCAL_YEAR
-from ..utils.utils import get_list_companies_child
+from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 
-PRIMARY_GREEN = "#00A09D"
-PRIMARY_PURPLE = "#875a7b"
-PRIMARY_ORANGE = "#f19848"
-PRIMARY_BLUE = "#649ce7"
+from ..utils.time_utils import get_list_period_by_type, \
+    BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, BY_FISCAL_YEAR, \
+    get_start_end_date_value, get_start_end_date_value_with_delta, get_same_date_delta_period
+from ..utils.utils import get_list_companies_child, format_currency
 
 COLOR_VALIDATION_DATA = "#337ab7"
-COLOR_INCOME = PRIMARY_GREEN
-COLOR_EXPENSE = PRIMARY_ORANGE
-COLOR_SALE_PAST = PRIMARY_PURPLE
-COLOR_SALE_FUTURE = PRIMARY_GREEN
-COLOR_CASH_OUT = PRIMARY_ORANGE
-COLOR_CASH_IN = PRIMARY_GREEN
-COLOR_PROJECTED_CASH_IN = PRIMARY_GREEN
-COLOR_PROJECTED_CASH_OUT = PRIMARY_ORANGE
-COLOR_PROJECTED_BALANCE = PRIMARY_BLUE
-COLOR_NET_CASH = PRIMARY_BLUE
-COLOR_BANK = PRIMARY_GREEN
-COLOR_BOOK = PRIMARY_ORANGE
-COLOR_OPEN_INVOICES = PRIMARY_ORANGE
-COLOR_PAID_INVOICE = PRIMARY_GREEN
-COLOR_OPEN_BILLS = PRIMARY_PURPLE
-COLOR_PAID_BILLS = PRIMARY_BLUE
+COLOR_INCOME = "#2b78e4"
+COLOR_EXPENSE = "#cf2a27"
+COLOR_SALE_PAST = "#2a78e4"
+COLOR_SALE_FUTURE = "#489e26"
+COLOR_CASH_OUT = "#f1c232"
+COLOR_CASH_IN = "#00ffff"
+COLOR_PROJECTED_CASH_IN = "#2b78e4"
+COLOR_PROJECTED_CASH_OUT = "#cf2a27"
+COLOR_PROJECTED_BALANCE = "#489e26"
+COLOR_NET_CASH = "#2978e4"
+COLOR_BANK = "#009e0f"
+COLOR_BOOK = "#ff9900"
+COLOR_OPEN_INVOICES = "#f3993e"
+COLOR_PAID_INVOICE = "#2b78e4"
+COLOR_OPEN_BILLS = "#8e7cc3"
+COLOR_PAID_BILLS = "#6fa8dc"
 
 PROFIT_LOT = 'profit_and_loss'
 SALES = 'sales'
@@ -46,16 +47,6 @@ CASH_FORECAST = 'cash_forecast'
 BANK = 'bank'
 CUSTOMER_INVOICE = 'sale'
 VENDOR_BILLS = 'purchase'
-
-GRAPH_CONFIG = {
-    PROFIT_LOT:         {'type': 'bar',             'function': 'retrieve_profit_and_loss'},
-    SALES:              {'type': 'line',            'function': 'retrieve_sales'},
-    CASH:               {'type': 'bar',             'function': 'retrieve_cash'},
-    CASH_FORECAST:      {'type': 'bar',             'function': 'retrieve_cash_forecast'},
-    BANK:               {'type': 'horizontalBar',   'function': ''},
-    CUSTOMER_INVOICE:   {'type': 'bar',             'function': 'retrieve_account_invoice'},
-    VENDOR_BILLS:       {'type': 'bar',             'function': 'retrieve_account_invoice'},
-}
 
 
 class USAJournal(models.Model):
@@ -101,62 +92,81 @@ class USAJournal(models.Model):
     name = fields.Char('Element Name', required=True)
     account_dashboard_graph_dashboard_graph = fields.Text(compute='compute_account_dashboard_graph', store=False)
     extend_data = fields.Boolean(compute='compute_account_dashboard_graph', default=False, store=True)
-    show_on_dashboard = fields.Boolean(string='Show journal on dashboard', default=True,
-                                       help="Whether this journal should be displayed on the dashboard or not")
+    show_on_dashboard = fields.Boolean(string='Show journal on dashboard',
+                                       help="Whether this journal should be displayed on the dashboard or not",
+                                       default=True)
     color = fields.Integer("Color Index", default=0)
     company_id = fields.Many2one('res.company', string='Company', required=True, index=True,
-                                 default=lambda self: self.env.company, help="Company related to this journal")
+                                 default=lambda self: self.env.user.company_id,
+                                 help="Company related to this journal")
     currency_id = fields.Many2one('res.currency', related='company_id.currency_id')
     recurring_cashin = fields.Monetary('Recurring Cash in', default=0)
     recurring_cashout = fields.Monetary('Recurring Cash out', default=0)
 
+    @api.one
     @api.depends()
     def compute_account_dashboard_graph(self):
-        for record in self:
-            graph_data = None
-            extend_mode = None
-            selection = []
-            extra_param = []
+        print("compute_account_dashboard_graph")
+        graph_data = None
+        type_data = None
+        extend_mode = None
+        function_retrieve = ""
+        selection = []
+        extra_param = []
 
-            if record.type == PROFIT_LOT:
-                _, graph_data = record.get_general_kanban_section_data()
-                get_json_data_for_selection(record, selection, record.period_by_month, record.default_period_by_month)
+        if self.type == PROFIT_LOT:
+            type_data = "bar"
+            _, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_profit_and_loss'
+            get_json_data_for_selection(self, selection, self.period_by_month, self.default_period_by_month)
 
-            if record.type == SALES:
-                extend_mode, graph_data = record.get_general_kanban_section_data()
-                get_json_data_for_selection(record, selection, record.period_by_complex, record.default_period_complex)
+        if self.type == SALES:
+            type_data = "line"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_sales'
+            get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
 
-            if record.type == CASH:
-                extend_mode, graph_data = record.get_general_kanban_section_data()
-                get_json_data_for_selection(record, selection, record.period_by_complex, record.default_period_complex)
+        if self.type == CASH:
+            type_data = "multi_chart"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_cash'
+            get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
 
-            if record.type == CASH_FORECAST:
-                extend_mode, graph_data = record.get_general_kanban_section_data()
-                # get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
+        if self.type == CASH_FORECAST:
+            type_data = "multi_chart"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_cash_forecast'
+            # get_json_data_for_selection(self, selection, self.period_by_complex, self.default_period_complex)
 
-            if record.type == BANK:
-                extend_mode, graph_data = record.get_bar_by_category_graph_data()
+        if self.type == BANK:
+            type_data = "horizontal_bar"
+            extend_mode, graph_data = self.get_bar_by_category_graph_data()
 
-            if record.type == CUSTOMER_INVOICE:
-                extend_mode, graph_data = record.get_general_kanban_section_data()
-                get_json_data_for_selection(record, selection, record.period_by_month_fiscal_year, record.default_period_by_month)
-                extra_param.append(record.type)
+        if self.type == CUSTOMER_INVOICE:
+            type_data = "bar"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_account_invoice'
+            get_json_data_for_selection(self, selection, self.period_by_month_fiscal_year, self.default_period_by_month)
+            extra_param.append(self.type)
 
-            if record.type == VENDOR_BILLS:
-                extend_mode, graph_data = record.get_general_kanban_section_data()
-                get_json_data_for_selection(record, selection, record.period_by_month_fiscal_year, record.default_period_by_month)
-                extra_param.append(record.type)
+        if self.type == VENDOR_BILLS:
+            type_data = "bar"
+            extend_mode, graph_data = self.get_general_kanban_section_data()
+            function_retrieve = 'retrieve_account_invoice'
+            get_json_data_for_selection(self, selection, self.period_by_month_fiscal_year, self.default_period_by_month)
+            extra_param.append(self.type)
 
-            if graph_data:
-                graph_type = GRAPH_CONFIG[record.type].get('type', '')
-                function_retrieve = GRAPH_CONFIG[record.type].get('function', '')
-                record.account_dashboard_graph_dashboard_graph = json.dumps(
-                    get_json_render(graph_type, False, '', graph_data, record.type, selection, function_retrieve, extra_param))
-                record.extend_data = extend_mode
+        if graph_data:
+            self.account_dashboard_graph_dashboard_graph = json.dumps(
+                get_json_render(type_data, False,
+                                graph_data, self.type,
+                                selection, function_retrieve, extra_param, self.currency_id.id))
+            self.write({'extend_data': extend_mode})
 
     ########################################################
     # GENERAL FUNCTION
     ########################################################
+    @api.multi
     def comp_ins_action(self):
         action = {
             'type': 'ir.actions.act_window',
@@ -173,6 +183,7 @@ class USAJournal(models.Model):
         json_return = json.dumps(object_json)
         return json_return
 
+    @api.multi
     def get_bar_by_category_graph_data(self):
         data = []
 
@@ -190,6 +201,7 @@ class USAJournal(models.Model):
             'key': graph_key,
             'color': COLOR_VALIDATION_DATA}]
 
+    @api.multi
     def get_general_kanban_section_data(self):
         data = []
 
@@ -204,6 +216,7 @@ class USAJournal(models.Model):
     ########################################################
     # BUTTON EVENT
     ########################################################
+    @api.multi
     def action_extend_view(self):
         """ Function implement action click button is named 'EXTEND' in
         each kanban section
@@ -212,29 +225,31 @@ class USAJournal(models.Model):
         """
         pass
 
+    @api.multi
     def open_action_label(self):
-        # TODO: fix action and complete_empty_list_help
         """ Function return action based on type for related journals
 
         :return:
         """
-        self.ensure_one()
         action_name = self._context.get('action_name', False)
         domain = []
         action = None
         if not action_name:
             if self.type == PROFIT_LOT:
-                action = self.env.ref('account_reports.account_financial_report_profitandloss0').generated_menu_id.action
+                action = self.env.ref('account_reports.account_financial_report_profitandloss0') \
+                    .generated_menu_id \
+                    .action
                 action_name = action.xml_id
             elif self.type == SALES:
-                action_name = 'account.action_move_out_invoice_type'
+                action_name = 'account.action_invoice_tree1'
                 domain = [('type', '=', 'out_invoice')]
             elif self.type == CASH:
-                # action = self.env.ref('account_reports.account_financial_report_cashsummary0').generated_menu_id.action
-                action = self.env.ref('account_reports.action_account_report_cs')
+                action = self.env.ref('account_reports.account_financial_report_cashsummary0') \
+                    .generated_menu_id \
+                    .action
                 action_name = action.xml_id
             elif self.type == CUSTOMER_INVOICE:
-                action_name = 'account.action_move_out_invoice_type'
+                action_name = 'account.action_invoice_tree1'
                 domain = [('type', '=', 'out_invoice')]
             elif self.type == VENDOR_BILLS:
                 action_name = 'account.action_vendor_bill_template'
@@ -283,18 +298,18 @@ class USAJournal(models.Model):
             action['search_view_id'] = account_invoice_filter and account_invoice_filter.id or False
 
         if self.type == VENDOR_BILLS:
-            new_help = self.env['account.move'].with_context(ctx).complete_empty_list_help()
+            new_help = self.env['account.invoice'].with_context(ctx).complete_empty_list_help()
             action.update({'help': action.get('help', '') + new_help})
         return action
 
+    @api.multi
     def action_create_new(self):
         """ Function implement action click button New "X" in Vendor bills and customer invoices
 
         :return:
         """
-        self.ensure_one()
         ctx = self._context.copy()
-        model = 'account.move'
+        model = 'account.invoice'
         if self.type == CUSTOMER_INVOICE:
             sale_id = self.env['account.journal'].search([('type', '=', 'sale')]).id
             ctx.update({
@@ -304,7 +319,7 @@ class USAJournal(models.Model):
                 'default_journal_id': sale_id})
             if ctx.get('refund'):
                 ctx.update({'default_type': 'out_refund', 'type': 'out_refund'})
-            view_id = self.env.ref('account.view_move_form').id
+            view_id = self.env.ref('account.invoice_form').id
         elif self.type == VENDOR_BILLS:
             purchase_id = self.env['account.journal'].search([('type', '=', 'purchase')]).id
             ctx.update({'journal_type': self.type,
@@ -313,7 +328,7 @@ class USAJournal(models.Model):
                         'default_journal_id': purchase_id})
             if ctx.get('refund'):
                 ctx.update({'default_type': 'in_refund', 'type': 'in_refund'})
-            view_id = self.env.ref('account.view_move_form').id
+            view_id = self.env.ref('account.invoice_supplier_form').id
 
         else:
             ctx.update({'default_journal_id': self.id, 'view_no_maturity': True})
@@ -329,16 +344,15 @@ class USAJournal(models.Model):
             'context': ctx,
         }
 
+    @api.multi
     def open_action(self):
-        # TODO: fix action and complete_empty_list_help
         """return action based on type for related journals"""
-        self.ensure_one()
         action_name = self._context.get('action_name', False)
         if not action_name:
             if self.type == BANK:
                 action_name = 'action_bank_statement_tree'
             elif self.type == CUSTOMER_INVOICE:
-                action_name = 'action_move_out_invoice_type'
+                action_name = 'action_invoice_tree1'
                 self = self.with_context(use_domain=[('type', '=', 'out_invoice')])
             elif self.type == VENDOR_BILLS:
                 action_name = 'action_vendor_bill_template'
@@ -372,18 +386,18 @@ class USAJournal(models.Model):
         action['context'] = ctx
         action['domain'] = self._context.get('use_domain', [])
         account_invoice_filter = self.env.ref('account.view_account_invoice_filter', False)
-        if action_name in ['action_move_out_invoice_type', 'action_vendor_bill_template']:
+        if action_name in ['action_invoice_tree1', 'action_vendor_bill_template']:
             action['search_view_id'] = account_invoice_filter and account_invoice_filter.id or False
         if action_name in ['action_bank_statement_tree', 'action_view_bank_statement_tree']:
             action['views'] = False
             action['view_id'] = False
         if self.type == VENDOR_BILLS:
-            new_help = self.env['account.move'].with_context(ctx).complete_empty_list_help()
+            new_help = self.env['account.invoice'].with_context(ctx).complete_empty_list_help()
             action.update({'help': action.get('help', '') + new_help})
         return action
 
+    @api.multi
     def action_open_reconcile(self):
-        self.ensure_one()
         if self.type in [BANK]:
             # Open reconciliation view for bank statements belonging to this journal
             bank_stmt = self.env['account.bank.statement'].search([('journal_id', 'in', self.ids)])
@@ -399,7 +413,7 @@ class USAJournal(models.Model):
             # Open reconciliation view for customers/suppliers
             action_context = {
                 'show_mode_selector': False,
-                'company_ids': self.env.company
+                'company_ids': self.env.user.company_id
             }
             if self.type == CUSTOMER_INVOICE:
                 action_context.update({'mode': 'customers'})
@@ -411,12 +425,14 @@ class USAJournal(models.Model):
                 'context': action_context,
             }
 
+    @api.multi
     def action_recurring_amount(self):
         self.ensure_one()
         action = self.env.ref('account_dashboard.usa_journal_recurring_payment_view_action').read()[0]
         action['res_id'] = self.id
         return action
 
+    @api.multi
     def button_save_recurring(self):
         return True
 
@@ -487,7 +503,11 @@ class USAJournal(models.Model):
                     str_compute = ""
                     for val in codes:
                         if val:
-                            str_compute += val + ('=1' if val == code else '=0') + '\r\n'
+                            if val == code:
+                                str_compute += val + '=1'
+                            else:
+                                str_compute += val + '=0'
+                            str_compute += '\r\n'
                     code_exec = compile(str_compute, '', 'exec')
                     exec(code_exec)
                     sum_value = eval(formula)
@@ -516,10 +536,12 @@ class USAJournal(models.Model):
                 else:
                     code_group_expenses.append(node['code'])
 
-        env = self.env['account.financial.html.report.line']
-
-        domain_group_expenses = env.search([('code', 'in', code_group_expenses)]).mapped(lambda g: ast.literal_eval(g.domain))
-        domain_group_income = env.search([('code', 'in', code_group_income)]).mapped(lambda g: ast.literal_eval(g.domain))
+        domain_group_expenses = self.env['account.financial.html.report.line'] \
+            .search([('code', 'in', code_group_expenses)]) \
+            .mapped(lambda g: ast.literal_eval(g.domain))
+        domain_group_income = self.env['account.financial.html.report.line'] \
+            .search([('code', 'in', code_group_income)]) \
+            .mapped(lambda g: ast.literal_eval(g.domain))
 
         expenses_domain = expression.OR(domain_group_expenses)
         income_domain = expression.OR(domain_group_income)
@@ -528,116 +550,139 @@ class USAJournal(models.Model):
         sql_params = [period_type, date_from, date_to]
         sql_params.extend(where_params)
 
-        income_group_data = self.env['account.move.line'].summarize_group_account(date_from, date_to, period_type, income_domain)
-        expense_group_data = self.env['account.move.line'].summarize_group_account(date_from, date_to, period_type, expenses_domain)
-
-        total_income, income_values, labels = get_data_for_graph(self, date_from, date_to, period_type, income_group_data, ['total_balance'], pos=-1)
-        total_expense, expense_values, labels = get_data_for_graph(self, date_from, date_to, period_type, expense_group_data, ['total_balance'])
-
+        income_group_data = self.env['account.move.line'].summarize_group_account(date_from, date_to,
+                                                                                  period_type, income_domain)
+        expense_group_data = self.env['account.move.line'].summarize_group_account(date_from, date_to,
+                                                                                   period_type, expenses_domain)
+        total_income, income_values = self.get_values_for_graph(date_from, date_to,
+                                                                period_type, income_group_data,
+                                                                'date_in_period', ['total_balance'],
+                                                                pos=-1)
+        total_expense, expense_values = self.get_values_for_graph(date_from, date_to,
+                                                                  period_type, expense_group_data,
+                                                                  'date_in_period', ['total_balance'])
         graph_data = [
-            get_barchart_format(income_values[0], _('Income'), COLOR_INCOME),
-            get_barchart_format(expense_values[0], _('Expenses'), COLOR_EXPENSE),
-        ]
-
+            {
+                'key': _('Income'),
+                'values': income_values[0],
+                'color': COLOR_INCOME
+            }, {
+                'key': _('Expenses'),
+                'values': expense_values[0],
+                'color': COLOR_EXPENSE
+            }]
         info_data = [
-            get_info_data(self, _('Income'), total_income[0]),
-            get_info_data(self, _('Expenses'), total_expense[0]),
-            get_info_data(self, _('Net Income'), total_income[0] - total_expense[0]),
-        ]
+            {
+                'name': _('Net Income'),
+                'summarize': format_currency(self, total_income[0] - total_expense[0])
+            }, {
+                'name': _('Income'),
+                'summarize': format_currency(self, total_income[0])
+            }, {
+                'name': _('Expenses'),
+                'summarize': format_currency(self, total_expense[0])
+            }]
 
-        return get_chart_json(graph_data, labels, get_chartjs_setting(chart_type='bar'), info_data)
+        return {'graph_data': graph_data, 'info_data': info_data}
 
     @api.model
     def retrieve_sales(self, date_from, date_to, period_type):
         """ API is used to response untaxed amount of all invoices in system that get
         from account_invoice.
+
         :param date_from: the start date to summarize data, have type is datetime
         :param date_to: the end date to summarize data, that have type is datetime
         :param period_type: is type of period to summarize data, we have 4 selections are
                 ['week', 'month', 'quarter', 'year']
         :return: Json
+                {
+                    'graph_data': [{json to render graph data}]
+                    'info_data': [{'name': 'the label will show for summarize data', 'summarize': 'summarize data'}]
+                }
         """
+
+        graph_data = []
+        info_data = []
+        summarize = 0.0
+        extra_graph_setting = {}
+
         date_from = datetime.strptime(date_from, '%Y-%m-%d')
         date_to = datetime.strptime(date_to, '%Y-%m-%d')
         periods = get_list_period_by_type(self, date_from, date_to, period_type)
 
-        currency = """
-            SELECT c.id, COALESCE((
-                SELECT r.rate
-                FROM res_currency_rate r
-                WHERE r.currency_id = c.id AND r.name <= %s AND (r.company_id IS NULL OR r.company_id IN %s)
-                ORDER BY r.company_id, r.name DESC
-                LIMIT 1), 1.0) AS rate
-            FROM res_currency c
-        """
+        currency = """  SELECT c.id,
+                               COALESCE((SELECT r.rate FROM res_currency_rate r
+                                         WHERE r.currency_id = c.id AND r.name <= %s
+                                           AND (r.company_id IS NULL OR r.company_id IN %s)
+                                         ORDER BY r.company_id, r.name DESC
+                                         LIMIT 1), 1.0) AS rate
+                        FROM res_currency c"""
 
-        transferred_currency = """
-            SELECT ai.invoice_date, ai.type, c.rate * ai.amount_untaxed AS amount_tran, state, company_id
-            FROM account_move AS ai
-                LEFT JOIN ({currency_table}) AS c ON ai.currency_id = c.id
-        """.format(currency_table=currency)
+        transferred_currency = """select ai.date_invoice, ai.type, c.rate * ai.amount_untaxed as amount_tran, state, company_id
+                                  from account_invoice as ai
+                                         left join ({currency_table}) as c
+                                           on ai.currency_id = c.id""".format(currency_table=currency, )
 
-        query = """
-            SELECT date_part('year', aic.invoice_date::DATE) AS year,
-                date_part(%s, aic.invoice_date::DATE) AS period,
-                MIN(aic.invoice_date) AS date_in_period,
-                SUM(aic.amount_tran) AS amount_untaxed
-            FROM ({transferred_currency_table}) AS aic
-            WHERE invoice_date >= %s AND
-                invoice_date <= %s AND
-                aic.state = 'posted' AND
-                aic.type = 'out_invoice' AND
-                aic.company_id IN %s
-            GROUP BY year, period
-            ORDER BY year, period;
-        """.format(transferred_currency_table=transferred_currency)
+        query = """ SELECT date_part('year', aic.date_invoice::date) as year,
+                           date_part(%s, aic.date_invoice::date) AS period,
+                           MIN(aic.date_invoice) as date_in_period,
+                           SUM(aic.amount_tran) as amount_untaxed
+                    FROM ({transferred_currency_table}) as aic
+                    WHERE date_invoice >= %s AND
+                          date_invoice <= %s AND
+                          aic.state NOT IN ('draft',  'cancel') AND
+                          aic.type = 'out_invoice' AND
+                          aic.company_id IN %s
+                    GROUP BY year, period
+                    ORDER BY year, period;""".format(transferred_currency_table=transferred_currency, )
 
-        company_ids = get_list_companies_child(self.env.company)
+        company_ids = get_list_companies_child(self.env.user.company_id)
         name = fields.Date.today()
         self.env.cr.execute(query, (period_type, name, tuple(company_ids), date_from, date_to, tuple(company_ids),))
         data_fetch = self.env.cr.dictfetchall()
+        index_period = 0
+        past_sale_values = []
+        future_sale_values = []
 
-        data_list = [[], []]
-        graph_label = []
-        index = 0
-        total_sales = 0
-
-        today = date.today()
         for data in data_fetch:
-            while not (periods[index][0] <= data['date_in_period'] <= periods[index][1]) and index < len(periods):
-                values = [
-                    0 if periods[index][0] <= today else 'NaN',
-                    0 if periods[index][1] >= today else 'NaN'
-                ]
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-                index += 1
+            while not (periods[index_period][0] <= data['date_in_period'] <= periods[index_period][1]) \
+                    and index_period < len(periods):
+                push_to_list_values_to_sales(
+                    past_sale_values, future_sale_values,
+                    0, index_period + 1,
+                    periods[index_period], period_type)
+                index_period += 1
+            if index_period < len(periods):
+                amount_untaxed = data.get('amount_untaxed', False)
+                if not isinstance(amount_untaxed, bool):
+                    push_to_list_values_to_sales(
+                        past_sale_values, future_sale_values,
+                        amount_untaxed, index_period + 1,
+                        periods[index_period], period_type)
+                    summarize += amount_untaxed
+                index_period += 1
 
-            if index < len(periods):
-                value = data.get('amount_untaxed', False)
-                values = [
-                    value if not isinstance(value, bool) and periods[index][0] <= today else 'NaN',
-                    value if not isinstance(value, bool) and periods[index][1] >= today else 'NaN'
-                ]
-                total_sales += value if value else 0
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-                index += 1
+        # Append value miss in the future with the value 0 for each period
+        while index_period < len(periods):
+            push_to_list_values_to_sales(
+                past_sale_values, future_sale_values,
+                0, index_period + 1,
+                periods[index_period], period_type)
+            index_period += 1
 
-        while index < len(periods):
-            values = [
-                0 if periods[index][0] <= today else 'NaN',
-                0 if periods[index][1] >= today else 'NaN'
-            ]
-            append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-            index += 1
-
-        graph_data = [
-            get_linechart_format(data=data_list[0], label=_('Sales'), color=COLOR_SALE_PAST),
-            get_linechart_format(data=data_list[1], label=_('Future'), color=COLOR_SALE_FUTURE),
-        ]
-
-        info_data = [get_info_data(self, _('Total Amount'), total_sales)]
-
-        return get_chart_json(graph_data, graph_label, get_chartjs_setting(chart_type='line'), info_data)
+        graph_data.append({
+            'values': past_sale_values,
+            'key': _('Sales'),
+            'color': COLOR_SALE_PAST
+        })
+        if len(future_sale_values):
+            graph_data.append({
+                'values': future_sale_values,
+                'key': _('Future'),
+                'color': COLOR_SALE_FUTURE
+            })
+        info_data.append({'name': _('Total Amount'), 'summarize': format_currency(self, summarize)})
+        return {'graph_data': graph_data, 'info_data': info_data, 'extra_graph_setting': extra_graph_setting}
 
     @api.model
     def retrieve_cash(self, date_from, date_to, period_type):
@@ -651,72 +696,102 @@ class USAJournal(models.Model):
         :param period_type: is type of period to summarize data, we have 4 selections are
                 ['week', 'month', 'quarter', 'year']
         :return: Json
+                {
+                    'graph_data': [{json to render graph data}]
+                    'info_data': [{'name': 'the label will show for summarize data', 'summarize': 'summarize data'}]
+                }
         """
 
         date_from = datetime.strptime(date_from, '%Y-%m-%d')
         date_to = datetime.strptime(date_to, '%Y-%m-%d')
         periods = get_list_period_by_type(self, date_from, date_to, period_type)
         type_account_id = self.env.ref('account.data_account_type_liquidity').id
-        query = """
-            SELECT date_part('year', aml.date::DATE) AS year,
-                date_part(%s, aml.date::DATE) AS period,
-                MIN(aml.date) AS date_in_period,
-                SUM(aml.debit) AS total_debit,
-                SUM(aml.credit) AS total_credit
-            FROM account_move_line AS aml
-                INNER JOIN account_move AS am ON aml.move_id = am.id
-                INNER JOIN account_account AS aa ON aml.account_id = aa.id
-                INNER JOIN account_account_type AS aat ON aa.user_type_id = aat.id
-            WHERE aml.date >= %s AND 
-                aml.date <= %s AND
-                am.state = 'posted' AND
-                aat.id = %s AND 
-                aml.company_id IN %s
-            GROUP BY year, period
-            ORDER BY year, period;
-        """
+        query = """SELECT date_part('year', aml.date::date) as year,
+                              date_part(%s, aml.date::date) AS period,
+                              MIN(aml.date) as date_in_period,
+                              SUM(aml.debit) as total_debit,
+                              SUM(aml.credit) as total_credit
+                        FROM account_move_line as aml
+                        INNER JOIN account_move as am
+                        ON aml.move_id = am.id
+                        INNER JOIN account_account as aa
+                        ON aml.account_id = aa.id
+                        INNER JOIN account_account_type as aat
+                        ON aa.user_type_id = aat.id
+                        WHERE aml.date >= %s AND 
+                              aml.date <= %s AND
+                              am.state = 'posted' AND
+                              aat.id = %s AND 
+                              aml.company_id IN %s
+                        GROUP BY year, period
+                        ORDER BY year, period;"""
 
-        company_ids = get_list_companies_child(self.env.company)
+        company_ids = get_list_companies_child(self.env.user.company_id)
         self.env.cr.execute(query, (period_type, date_from, date_to, type_account_id, tuple(company_ids),))
         data_fetch = self.env.cr.dictfetchall()
-
-        data_list = [[], [], []]
-        graph_label = []
-        index = 0
-
+        index_period = 0
+        cash_in = []
+        cash_out = []
+        net_cash = []
+        cash_data = [cash_in, cash_out, net_cash]
         for data in data_fetch:
-            while not (periods[index][0] <= data['date_in_period'] <= periods[index][1]) and index < len(periods):
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index)
-                index += 1
-            if index < len(periods):
-                values = [data['total_debit'], -data['total_credit'], data['total_debit'] - data['total_credit']]
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-                index += 1
+            while not (periods[index_period][0] <= data['date_in_period'] <= periods[index_period][1]) and \
+                    index_period < len(periods):
+                push_to_list_lists_at_timestamp(cash_data, [0, 0, 0], periods[index_period], period_type)
+                index_period += 1
+            if index_period < len(periods):
+                push_to_list_lists_at_timestamp(cash_data,
+                                                [
+                                                    data['total_debit'],
+                                                    - data['total_credit'],
+                                                    data['total_debit'] - data['total_credit']
+                                                ],
+                                                periods[index_period], period_type)
+                index_period += 1
 
-        while index < len(periods):
-            append_data_fetch_to_list(data_list, graph_label, periods, period_type, index)
-            index += 1
+        while index_period < len(periods):
+            push_to_list_lists_at_timestamp(cash_data, [0, 0, 0], periods[index_period], period_type)
+            index_period += 1
 
         # Create chart data
-        # Line chart must be on top of bar chart, so put it first and reverse the order of chart's legend
-        graph_data = [
-            get_linechart_format(data_list[2], _('Net cash'), COLOR_NET_CASH, order=2),
-            get_barchart_format(data_list[1], _('Cash out'), COLOR_CASH_OUT, order=1),
-            get_barchart_format(data_list[0], _('Cash in'), COLOR_CASH_IN),
-        ]
+        graph_data = [{
+            'key': _('Cash in'),
+            'values': cash_in,
+            'color': COLOR_CASH_IN,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Cash out'),
+            'values': cash_out,
+            'color': COLOR_CASH_OUT,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Net cash'),
+            'values': net_cash,
+            'color': COLOR_NET_CASH,
+            'type': 'line',
+            'yAxis': 1
+        }]
 
         # Create info to show in head of chart
-        info_data = [
-            get_info_data(self, _('Cash in'), sum(data_list[0])),
-            get_info_data(self, _('Cash out'), sum(data_list[1])),
-            get_info_data(self, _('Net cash'), sum(data_list[0] + data_list[1])),
-        ]
-
-        return get_chart_json(graph_data, graph_label, get_chartjs_setting(chart_type='bar', mode='index', stacked=True, reverse=True), info_data)
+        sum_cash_in = sum(item['y'] for item in cash_in)
+        sum_cash_out = sum(item['y'] for item in cash_out)
+        info_data = [{
+            'name': _('Cash in'),
+            'summarize': format_currency(self, sum_cash_in)
+        }, {
+            'name': _('Cash out'),
+            'summarize': format_currency(self, sum_cash_out)
+        }, {
+            'name': _('Net cash'),
+            'summarize': format_currency(self, sum_cash_in + sum_cash_out)
+        }]
+        return {'graph_data': graph_data, 'info_data': info_data}
 
     @api.model
     def retrieve_cash_forecast(self, date_from, date_to, period_type):
-        company_ids = get_list_companies_child(self.env.company)
+        company_ids = get_list_companies_child(self.env.user.company_id)
         receivable_account_id = self.env.ref('account.data_account_type_receivable').id
         payable_account_id = self.env.ref('account.data_account_type_payable').id
         liquidity_account_id = self.env.ref('account.data_account_type_liquidity').id
@@ -757,76 +832,164 @@ class USAJournal(models.Model):
             self.env.cr.execute(query, (date, account_type, tuple(company_ids)))
             return self.env.cr.dictfetchall()
 
-        def _get_account_balance(where, period_type, date_from, date_to, reconcile_acc_id, liquidity_account_id, company_ids):
-            query = """
-                SELECT date_part('year', aml.date_maturity) AS year,
-                    date_part(%s, aml.date_maturity) AS period,
-                    COALESCE(SUM(aml.amount_residual), 0) AS amount
-                FROM account_move_line AS aml
-                    INNER JOIN account_move AS am ON aml.move_id = am.id
-                    INNER JOIN account_account AS aa ON aml.account_id = aa.id
-                WHERE aml.date_maturity >= %s AND
-                    aml.date_maturity <= %s AND
-                    am.state = 'posted' AND
-                    aml.company_id IN %s AND
-                    (aa.user_type_id = %s OR (aa.user_type_id = %s AND {}))
-                GROUP BY year, period
-                ORDER BY year, period;
-            """
+        def _get_account_balance(where, period_type, date_from, date_to, reconcile_acc_id,
+                                 liquidity_account_id, company_ids):
+            query = """SELECT date_part('year', aml.date_maturity) as year,
+                              date_part(%s, aml.date_maturity) AS period,
+                              COALESCE(SUM(aml.amount_residual), 0) as amount
+                        FROM account_move_line as aml
+                            INNER JOIN account_move as am
+                                ON aml.move_id = am.id
+                            INNER JOIN account_account as aa
+                                ON aml.account_id = aa.id
+                        WHERE aml.date_maturity >= %s AND 
+                              aml.date_maturity <= %s AND
+                              am.state = 'posted' AND
+                              aml.company_id IN %s AND
+                              (aa.user_type_id = %s OR
+                              (aa.user_type_id = %s AND {}))
+                        GROUP BY year, period
+                        ORDER BY year, period;"""
 
-            self.env.cr.execute(query.format(where), (period_type, date_from, date_to,  tuple(company_ids), reconcile_acc_id, liquidity_account_id))
+            self.env.cr.execute(query.format(where),
+                                (period_type, date_from, date_to,  tuple(company_ids), reconcile_acc_id, liquidity_account_id))
             return self.env.cr.dictfetchall()
 
-        # Projected Cash in = Debit of Receivable (Invoice) + Debit of Bank (Payment + Receipt)
-        data_receivable = _get_account_balance('aml.debit > 0', period_type, date_from, date_to,
+        # Projected Cash in = Balance of Receivable + Debit of Bank (Payment + Receipt)
+        data_receivable = _get_account_balance('aml.debit > 0', period_type,
+                                               date_from, date_to,
                                                receivable_account_id, liquidity_account_id, company_ids)
         data_dict = _update_data_dict(data_dict, data_receivable, 'receivable')
 
-        # Projected Cash out = Credit of Payable (Bill) + Credit of Bank (Payment + Receipt)
-        data_payable = _get_account_balance('aml.credit > 0', period_type, date_from, date_to,
+        # Projected Cash out = Balance of Payable (Bill) + Credit of Bank (Payment + Receipt)
+        data_payable = _get_account_balance('aml.credit > 0', period_type,
+                                            date_from, date_to,
                                             payable_account_id, liquidity_account_id, company_ids)
         data_dict = _update_data_dict(data_dict, data_payable, 'payable')
 
-        opening_balance = _get_bank_balance(date_from, liquidity_account_id, company_ids)[0]['balance']
-
+        # Opening Balance
+        open_balance_date = date_from - relativedelta(days=1)
+        opening_balance = balance = _get_bank_balance(open_balance_date,
+                                                      liquidity_account_id, company_ids)[0]['balance']
+        index_period = 0
+        cash_in = []
+        cash_out = []
+        net_cash = []
+        cash_data = [cash_in, cash_out, net_cash]
         recurring_cashin = forecast_dashboard.recurring_cashin
-        recurring_cashout = forecast_dashboard.recurring_cashout * -1
-
-        data_list = [[], [], []]
-        graph_label = []
-        index = 0
-
+        recurring_cashout = forecast_dashboard.recurring_cashout \
+            if float_is_zero(forecast_dashboard.recurring_cashout, precision_digits=2) \
+            else forecast_dashboard.recurring_cashout * -1
         for key in sorted(data_dict):
             data = data_dict[key]
             receivable = data.get('receivable', 0) + recurring_cashin
             payable = data.get('payable', 0) + recurring_cashout
-            while not (periods[index][0].month <= data['period'] <= periods[index][1].month) and index < len(periods):
-                opening_balance += recurring_cashin + recurring_cashout
-                values = [recurring_cashin, recurring_cashout, opening_balance]
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-                index += 1
-            if index < len(periods):
-                opening_balance += receivable + payable
-                values = [receivable, payable, opening_balance]
-                append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-                index += 1
+            while not (periods[index_period][0].month <= data['period'] <= periods[index_period][1].month) and \
+                    index_period < len(periods):
+                balance += recurring_cashin + recurring_cashout
+                push_to_list_lists_at_timestamp(cash_data, [recurring_cashin, recurring_cashout, balance],
+                                                periods[index_period], period_type)
+                index_period += 1
+            if index_period < len(periods):
+                balance += receivable + payable
+                push_to_list_lists_at_timestamp(cash_data,
+                                                [
+                                                    receivable,
+                                                    payable,
+                                                    balance,
+                                                ],
+                                                periods[index_period], period_type)
+                index_period += 1
 
-        while index < len(periods):
-            opening_balance += recurring_cashin + recurring_cashout
-            values = [recurring_cashin, recurring_cashout, opening_balance]
-            append_data_fetch_to_list(data_list, graph_label, periods, period_type, index, values=values)
-            index += 1
+        while index_period < len(periods):
+            balance += recurring_cashin + recurring_cashout
+            push_to_list_lists_at_timestamp(cash_data, [recurring_cashin, recurring_cashout, balance],
+                                            periods[index_period], period_type)
+            index_period += 1
 
-        graph_data = [
-            get_linechart_format(data_list[2], _('Balance'), COLOR_PROJECTED_BALANCE, order=2),
-            get_barchart_format(data_list[1], _('Projected Cash out'), COLOR_PROJECTED_CASH_OUT, order=1),
-            get_barchart_format(data_list[0], _('Projected Cash in'), COLOR_PROJECTED_CASH_IN),
-        ]
+        # Create chart data
+        graph_data = [{
+            'key': _('Projected Cash in'),
+            'values': cash_in,
+            'color': COLOR_PROJECTED_CASH_IN,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Projected Cash out'),
+            'values': cash_out,
+            'color': COLOR_PROJECTED_CASH_OUT,
+            'type': 'bar',
+            'yAxis': 1
+        }, {
+            'key': _('Balance Carried Forward'),
+            'values': net_cash,
+            'color': COLOR_PROJECTED_BALANCE,
+            'type': 'line',
+            'yAxis': 1
+        }]
 
-        info_data = [
-            get_info_data(self, _('Projected Cash in'), sum(data_list[0])),
-            get_info_data(self, _('Projected Cash out'), sum(data_list[1])),
-            get_info_data(self, _('Balance'), sum(data_list[0] + data_list[1])),
-        ]
+        # Create info to show in head of chart
+        sum_cash_in = sum(item['y'] for item in cash_in)
+        sum_cash_out = sum(item['y'] for item in cash_out)
+        info_data = [{
+            'name': _('Total Projected Cash in'),
+            'title': _('This is total projected cash-in in the next 6 months'),
+            'summarize': format_currency(self, sum_cash_in)
+        }, {
+            'name': _('Total Projected Cash out'),
+            'title': _('This is total projected cash-out in the next 6 months'),
+            'summarize': format_currency(self, sum_cash_out)
+        }, {
+            'name': _('Balance of Bank & Cash as of {}'.format(open_balance_date.strftime(DEFAULT_SERVER_DATE_FORMAT))),
+            'summarize': format_currency(self, opening_balance)
+        }]
+        return {'graph_data': graph_data, 'info_data': info_data}
 
-        return get_chart_json(graph_data, graph_label, get_chartjs_setting(chart_type='bar', mode='index', stacked=True, reverse=True), info_data)
+    ########################################################
+    # GENERAL FUNCTION SUPPORT API
+    ########################################################
+    def get_values_for_graph(self, date_from, date_to, period_type,
+                             data_group, field_date_in_period='date_in_period',
+                             list_fields_data=[], pos=1):
+        """ function return the values to render the graph base on the range of time, period type,
+        data is list of dictionary contain data have summarize from database
+
+        :param date_from:
+        :param date_to:
+        :param period_type:
+        :param data_group:
+        :param field_date_in_period:
+        :param list_fields_data:
+        :return:
+        """
+        index_period = 0
+        len_of_list = len(list_fields_data)
+        list_data_return = []
+        if len_of_list:
+            periods = get_list_period_by_type(self, date_from, date_to, period_type)
+            list_zero_value = [0 for i in range(len_of_list)]
+            list_data_return = [[] for i in range(len_of_list)]
+            summarize = list_zero_value.copy()
+
+            for data in data_group:
+                list_data_value = [data[key] * pos for key in list_fields_data]
+                while not (periods[index_period][0] <= data[field_date_in_period] <= periods[index_period][1]) and \
+                        index_period < len(periods):
+                    push_to_list_lists_at_timestamp(list_data_return,
+                                                    list_zero_value,
+                                                    [periods[index_period][0]], period_type)
+                    index_period += 1
+                if index_period < len(periods):
+                    push_to_list_lists_at_timestamp(list_data_return,
+                                                    list_data_value,
+                                                    [periods[index_period][0]], period_type)
+                    summarize = [sum(x) for x in zip(summarize, list_data_value)]
+                    index_period += 1
+
+            while index_period < len(periods):
+                push_to_list_lists_at_timestamp(list_data_return,
+                                                list_zero_value,
+                                                [periods[index_period][0]], period_type)
+                index_period += 1
+
+        return summarize, list_data_return

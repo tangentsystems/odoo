@@ -125,6 +125,7 @@ class AlertInfo(models.Model):
     ########################################################
     # STANDARD FUNCTIONS
     ########################################################
+    @api.multi
     def unlink(self):
         self.clear_caches()
         list_personal_alert_id = []
@@ -137,6 +138,7 @@ class AlertInfo(models.Model):
             ]).unlink()
         return super(AlertInfo, self).unlink()
 
+    @api.multi
     def write(self, values):
         res = super(AlertInfo, self).write(values)
         nearest_right = values.get('nearest_right', None)
@@ -161,6 +163,7 @@ class AlertInfo(models.Model):
     ########################################################
     # COMPUTED FUNCTIONS
     ########################################################
+    @api.multi
     @api.depends('condition', 'value', 'cond_time_send')
     def _compute_previous_value(self):
         for alert in self:
@@ -174,11 +177,13 @@ class AlertInfo(models.Model):
             alert.previous_value = pre_value_default
             alert.times_reach_to_condition = 0
 
+    @api.multi
     def _compute_formatted_value(self):
         format_value = self.env['kpi.journal'].format_number_type
         for alert in self:
             alert.formatted_value, _ = format_value(alert.value, alert.kpi_id.unit)
 
+    @api.multi
     def _compute_self_active(self):
         uid = self.env.user.id
         alert_info_dict = dict(self.env['personalized.alert.info'].sudo().search([
@@ -190,6 +195,7 @@ class AlertInfo(models.Model):
             if person_alert_info:
                 alert.self_active = person_alert_info.active
 
+    @api.multi
     def _inverse_self_active(self):
         uid = self.env.user.id
         model_PAI = self.env['personalized.alert.info'].sudo().search([
@@ -222,6 +228,7 @@ class AlertInfo(models.Model):
         ])
         return [('id', 'in', self_alert.ids)]
 
+    @api.multi
     def _compute_is_creator(self):
         cur_user = self.env.user
         for alert in self:
@@ -243,6 +250,7 @@ class AlertInfo(models.Model):
     #             alert.last_send = fields.datetime.now()
     #         alert.last_send = alert.last_send
 
+    @api.multi
     @api.depends('recipient_ids')
     def _compute_personal_alert(self):
         print('_compute_personal_alert')
@@ -284,6 +292,7 @@ class AlertInfo(models.Model):
     ########################################################
     # BUTTON CLICK
     ########################################################
+    @api.multi
     def toggle_self_active(self):
         for alert in self:
             alert.self_active = not alert.self_active
@@ -291,6 +300,7 @@ class AlertInfo(models.Model):
     ########################################################
     # GENERAL FUNCTION
     ########################################################
+    @api.multi
     def send_alert(self):
         """ Function process send alert to each recipients
 
@@ -391,10 +401,4 @@ class AlertInfo(models.Model):
         except:
             result['status'] = DELETE_FAIL
             result['mess'] = _('Some problems were happening when this record deleted')
-        return result
-    
-    def name_get(self):
-        result = []
-        for alert in self:
-            result.append((alert.id, alert.subject))
         return result

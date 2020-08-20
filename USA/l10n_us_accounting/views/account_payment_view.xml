@@ -1,36 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- In Odoo 12, customer/bill payment and register payment in invoice use different form views,
-     but in Odoo 13, they use the same form, by using context.get('active_model') == 'account.move'
-     -->
     <record id="view_account_payment_form_usa" model="ir.ui.view">
         <field name="name">account.payment.form.usa</field>
         <field name="model">account.payment</field>
         <field name="inherit_id" ref="account.view_account_payment_form"/>
         <field name="arch" type="xml">
-            <!-- Replace button Reset to draft -->
-            <button name="action_draft" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </button>
-            <button name="action_draft" position="after">
-                <button name="action_draft_usa" type="object" class="btn-primary" string="Reset to draft" attrs="{'invisible': [('state', '=', 'draft')]}"/>
-            </button>
+            <!--Void Header-->
+            <header position="after">
+                <field name="has_been_voided" invisible="1"/>
+                <div class="alert alert-warning" role="alert" style="margin-bottom:0px; text-align:center;"
+                     attrs="{'invisible': [('has_been_voided','=',False)]}">
+                    This payment has been <span style="font-weight:bold;">voided.</span>
+                </div>
+            </header>
 
-            <button name="cancel" position="after">
-                <button name="delete_payment" type="object" string="Delete" states="draft,cancelled" confirm="Are you sure you want to delete this record ?"/>
-            </button>
+            <!--Payment Receipts with Credit-->
+            <header position="inside">
+                <button name="print_payment_receipts_with_credit" 
+                        attrs="{'invisible': ['|', '|', '|',
+                        ('payment_method_code', '!=', 'check_printing'),
+                        ('state', 'not in', ['posted', 'sent', 'reconciled']),
+                        ('payment_type', '!=', 'outbound'), ('partner_type', '!=', 'supplier')
+                        ]}"
+                        string="Print Payment Receipts" type="object"/>
+            </header>
 
-            <field name="communication" position="after">
-                <field name="ar_in_charge" attrs="{'invisible': [('payment_type', '!=', 'inbound')], 'readonly': [('state', '!=', 'draft')]}"/>
+            <field name="payment_transaction_id" position="after">
+                <field name="ar_in_charge" attrs="{'invisible': [('payment_type', '!=', 'inbound')]}"/>
+                <field name="show_cancel_button" invisible="1"/>
                 <field name="has_open_invoice" invisible="1"/>
                 <field name="display_applied_invoices" invisible="1"/>
             </field>
 
             <field name="payment_transaction_id" position="attributes">
-                <attribute name="attrs">{'invisible': [('payment_transaction_id', '=', False)], 'readonly': True}</attribute>
+                <attribute name="attrs">
+                    {'invisible': [('payment_transaction_id', '=', False)],
+                    'readonly': True}
+                </attribute>
             </field>
 
-            <!-- Payment Layout: Hide partner_type, payment_type, company_id -->
+            <!-- New Payment Layout-->
             <field name="partner_type" position="attributes">
                 <attribute name="invisible">1</attribute>
             </field>
@@ -38,62 +47,58 @@
                 <attribute name="invisible">1</attribute>
             </field>
 
-            <!-- Show partner group, by default Odoo hide it if this view is opened from account.move -->
-            <group name="partner_group" position="attributes">
-                <attribute name="invisible">0</attribute>
-            </group>
-            <!-- Hide group containing journal_id -->
-            <xpath expr="//group[@name='partner_group']/../group[2]" position="attributes">
+            <field name="journal_id" position="attributes">
                 <attribute name="invisible">1</attribute>
-            </xpath>
-
-            <field name="payment_method_id" position="replace"/>
+                <attribute name="widget"></attribute>
+            </field>
 
             <field name="partner_id" position="replace">
                 <field name="partner_id" string="Customer"
-                       attrs="{ 'required': ['&amp;', ('state', '=', 'draft'), ('payment_type', 'in', ('inbound', 'outbound'))],
-                                'invisible': ['|', ('partner_type', '!=', 'customer'), ('payment_type', 'not in', ('inbound', 'outbound'))],
-                                'readonly': [('state', '!=', 'draft')]}"
-                       context="{'default_is_company': True,
-                                'res_partner_search_mode': 'customer',
-                                'default_supplier_rank': payment_type == 'outbound' and 1}"/>
+                       attrs="{'required': ['&amp;', ('state', '=', 'draft'), ('payment_type', 'in', ('inbound', 'outbound'))],
+                       'invisible': ['|', ('partner_type', '!=', 'customer'), ('payment_type', 'not in', ('inbound', 'outbound'))],
+                       'readonly': [('state', '!=', 'draft')]}"
+                       context="{'default_is_company': True, 'default_supplier': payment_type == 'outbound', 'default_customer': payment_type == 'inbound'}"/>
                 <field name="partner_id" string="Vendor"
-                       attrs="{ 'required': ['&amp;', ('state', '=', 'draft'), ('payment_type', 'in', ('inbound', 'outbound'))],
-                                'invisible': ['|', ('partner_type', '!=', 'supplier'), ('payment_type', 'not in', ('inbound', 'outbound'))],
-                                'readonly': [('state', '!=', 'draft')]}"
-                       context="{'default_is_company': True,
-                                'res_partner_search_mode': 'supplier',
-                                'default_customer_rank': payment_type == 'inbound' and 1}"/>
-                <field name="journal_id" string="Bank Account"
-                       attrs="{ 'readonly': [('state', '!=', 'draft')],
-                                'required': [('payment_type', '!=', 'transfer')],
-                                'invisible': [('payment_type', '=', 'transfer')]}"/>
-                <field name="payment_method_id" string="Payment Method" attrs="{'readonly': [('state', '!=', 'draft')]}"
-                       domain="[('payment_type', '=', payment_type)]" options="{'no_create_edit': True, 'no_create': True}"/>
-                <field name="currency_id" options="{'no_create': True, 'no_open': True}" groups="base.group_multi_currency"
-                       attrs="{'readonly': [('state', '!=', 'draft')], 'invisible': [('display_applied_invoices', '=', False)]}"/>
-                <field name="journal_id" string="Transfer From" attrs="{'readonly': [('state', '!=', 'draft')],
-                    'required': [('payment_type', '=', 'transfer')], 'invisible': [('payment_type', '!=', 'transfer')]}"/>
-                <field name="destination_journal_id" widget="selection"
-                       attrs="{'required': [('payment_type', '=', 'transfer')], 'invisible': [('payment_type', '!=', 'transfer')]}"/>
+                       attrs="{'required': ['&amp;', ('state', '=', 'draft'), ('payment_type', 'in', ('inbound', 'outbound'))],
+                       'invisible': ['|', ('partner_type', '!=', 'supplier'), ('payment_type', 'not in', ('inbound', 'outbound'))],
+                       'readonly': [('state', '!=', 'draft')]}"
+                       context="{'default_is_company': True, 'default_supplier': payment_type == 'outbound', 'default_customer': payment_type == 'inbound'}"/>
+                <field name="journal_id" attrs="{'readonly': [('state', '!=', 'draft')],
+                    'required': [('payment_type', '!=', 'transfer')],
+                    'invisible': [('payment_type', '=', 'transfer')]}"
+                    string="Bank Account"/>
+            </field>
+
+            <field name="destination_journal_id" position="before">
+                <field name="journal_id" attrs="{'readonly': [('state', '!=', 'draft')],
+                    'required': [('payment_type', '=', 'transfer')],
+                    'invisible': [('payment_type', '!=', 'transfer')]}"
+                    string="Transfer From"/>
+            </field>
+
+            <field name="payment_method_id" position="replace">
+            </field>
+
+            <field name="journal_id" position="after">
+                <field name="payment_method_id" string="Payment Method" attrs="{'readonly': [('state', '!=', 'draft')]}" options="{'no_create_edit': True, 'no_create': True}"/>
+                <field name="currency_id" options="{'no_create': True, 'no_open': True}"
+                       groups="base.group_multi_currency"
+                       attrs="{'readonly': [('state', '!=', 'draft')],
+                       'invisible': [('display_applied_invoices', '=', False)]}"/>
             </field>
 
             <button name="button_journal_entries" position="attributes">
                 <attribute name="string">Journal Entry</attribute>
             </button>
 
-            <!-- In Customer/Vendor payment form, hide Amount field -->
-            <!--<label for="amount" position="attributes">-->
-                <!--<attribute name="invisible">context.get('summary_amount', False)</attribute>-->
-            <!--</label>-->
-            <!--<div name="amount_div" position="attributes">-->
-                <!--<attribute name="invisible">context.get('summary_amount', False)</attribute>-->
-            <!--</div>-->
             <label for="amount" position="attributes">
-                <attribute name="attrs">{'invisible': [('display_applied_invoices', '=', True)]}</attribute>
+                <attribute name="attrs">{'invisible': [('display_applied_invoices', '=', True)]}
+                </attribute>
             </label>
+
             <div name="amount_div" position="attributes">
-                <attribute name="attrs">{'invisible': [('display_applied_invoices', '=', True)]}</attribute>
+                <attribute name="attrs">{'invisible': [('display_applied_invoices', '=', True)]}
+                </attribute>
             </div>
 
             <!--Open Invoices-->
@@ -107,65 +112,76 @@
 
             <sheet position="inside">
                 <!--Customer Payment-->
-                <notebook invisible="context.get('active_model') == 'account.move'"
-                          attrs="{'invisible': ['|', '|', ('has_open_invoice', '=', False), ('state', '!=', 'draft'), ('payment_type', '!=', 'inbound')]}">
+                <notebook attrs="{'invisible': ['|', '|', ('has_open_invoice', '=', False), ('state', '!=', 'draft'),
+                    ('payment_type', '!=', 'inbound')]}">
                     <page string="Open Invoices">
-                        <field name="open_invoice_ids" context="{'default_payment_id': id}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="open_invoice_ids" context="{'default_payment_id': id}"
+                             attrs="{'readonly': [('state', '!=', 'draft')]}">
+                        </field>
                     </page>
                 </notebook>
 
-                <notebook invisible="context.get('active_model') == 'account.move'"
-                          attrs="{'invisible': ['|', '|', '|', ('state', 'in', ['draft', 'cancelled']),
-                                ('payment_type', '!=', 'inbound'), ('open_invoice_ids', '=', []),
+                <notebook attrs="{'invisible': ['|', '|', '|', ('state', 'in', ['draft', 'cancelled']), ('payment_type', '!=', 'inbound'),
+                                 ('open_invoice_ids', '=', []),
                                 '&amp;', ('payment_type', '=', 'inbound'), ('partner_type', '=', 'supplier')]}">
                     <page string="Applied Invoices">
-                        <field name="open_invoice_ids" context="{'default_payment_id': id}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="open_invoice_ids" context="{'default_payment_id': id}"
+                               attrs="{'readonly': [('state', '!=', 'draft')]}">
+                        </field>
                     </page>
                 </notebook>
 
                 <!--Bill Payment-->
-                <notebook invisible="context.get('active_model') == 'account.move'"
-                          attrs="{'invisible': ['|', '|', ('has_open_invoice', '=', False), ('state', '!=', 'draft'), ('payment_type', '!=', 'outbound')]}">
+                <notebook attrs="{'invisible': ['|', '|', ('has_open_invoice', '=', False), ('state', '!=', 'draft'),
+                    ('payment_type', '!=', 'outbound')]}">
                     <page string="Open Bills">
-                        <field name="open_invoice_ids" context="{'default_payment_id': id}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="open_invoice_ids" context="{'default_payment_id': id}"
+                             attrs="{'readonly': [('state', '!=', 'draft')]}">
+                        </field>
                     </page>
                 </notebook>
 
-                <notebook invisible="context.get('active_model') == 'account.move'"
-                          attrs="{'invisible': ['|', '|', '|', ('state', 'in', ['draft', 'cancelled']),
-                                ('payment_type', '!=', 'outbound'), ('open_invoice_ids', '=', []),
+                <notebook attrs="{'invisible': ['|', '|', '|', ('state', 'in', ['draft', 'cancelled']), ('payment_type', '!=', 'outbound'),
+                                  ('open_invoice_ids', '=', []),
                                 '&amp;', ('payment_type', '=', 'outbound'), ('partner_type', '=', 'customer')]}">
                     <page string="Applied Bills">
-                        <field name="open_invoice_ids" context="{'default_payment_id': id}" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="open_invoice_ids" context="{'default_payment_id': id}"
+                             attrs="{'readonly': [('state', '!=', 'draft')]}">
+                        </field>
                     </page>
                 </notebook>
 
                 <group class="oe_subtotal_footer oe_right" colspan="2" name="payment_total"
-                       attrs="{'invisible': [('display_applied_invoices', '=', False)]}">
-                    <field name="payment_with_invoices" string="Payment with Invoices" readonly="1" force_save="1"
-                           attrs="{'invisible': [('payment_type', '!=', 'inbound')]}"/>
-                    <field name="payment_with_invoices" string="Payment with Bills" readonly="1" force_save="1"
-                           attrs="{'invisible': [('payment_type', '!=', 'outbound')]}"/>
-                    <field name="writeoff_amount" readonly="1" force_save="1"/>
-                    <field name="outstanding_payment" readonly="1" force_save="1"/>
+                       attrs="{'invisible': ['|', '|', '|', ('payment_type', '=', 'transfer'),
+                        '&amp;', ('open_invoice_ids', '=', []), ('has_open_invoice', '=', False),
+                        '&amp;', ('payment_type', '=', 'outbound'), ('partner_type', '=', 'customer'),
+                        '&amp;', ('payment_type', '=', 'inbound'), ('partner_type', '=', 'supplier')]}">
+                    <field name="payment_with_invoices" widget='monetary' options="{'currency_field': 'currency_id'}"
+                        attrs="{'invisible': [('payment_type', '!=', 'inbound')]}" string="Payment with Invoices"/>
+                    <field name="payment_with_invoices" widget='monetary' options="{'currency_field': 'currency_id'}"
+                        attrs="{'invisible': [('payment_type', '!=', 'outbound')]}" string="Payment with Bills"/>
+                    <field name="outstanding_payment" widget='monetary' options="{'currency_field': 'currency_id'}"/>
                     <div class="oe_subtotal_footer_separator oe_inline o_td_label">
                         <label for="amount" />
                     </div>
-                    <field name="amount" nolabel="1" class="oe_subtotal_footer_separator"  attrs="{'readonly': [('state', '!=', 'draft')]}" />
+                    <field name="amount" nolabel="1" class="oe_subtotal_footer_separator"
+                           widget='monetary' options="{'currency_field': 'currency_id'}"
+                           attrs="{'readonly': [('state', '!=', 'draft')]}" />
                 </group>
             </sheet>
         </field>
     </record>
 
     <!-- Rename Receive Payment popup -->
-    <!--<record id="account.action_account_invoice_payment" model="ir.actions.act_window">
+    <record id="account.action_account_invoice_payment" model="ir.actions.act_window">
         <field name="name">Receive Payment</field>
-    </record>-->
+    </record>
 
     <!-- Rename Make A Refund popup -->
     <record id="action_account_customer_credit_notes_usa" model="ir.actions.act_window">
         <field name="name">Make A Refund</field>
         <field name="res_model">account.payment</field>
+        <field name="view_type">form</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account.view_account_payment_invoice_form"/>
         <field name="context">{'default_invoice_ids': [(4, active_id, None)]}</field>
@@ -184,8 +200,7 @@
             </field>
 
             <field name="payment_method_id" position="replace">
-                <field name="payment_method_id" string="Payment Method" domain="[('payment_type', '=', payment_type)]"
-                       widget="selection" attrs="{'invisible': [('amount', '=', 0)]}"/>
+                <field name="payment_method_id" string="Payment Method" widget="selection" attrs="{'invisible': [('amount', '=', 0)]}"/>
             </field>
 
             <!--Handle Writeoff-->
@@ -215,16 +230,16 @@
     <!-- Register payment from several invoices -->
     <record id="view_account_payment_from_invoices_usa" model="ir.ui.view">
         <field name="name">account.register.payments.wizard.usa</field>
-        <field name="model">account.payment.register</field>
-        <field name="inherit_id" ref="account.view_account_payment_form_multi"/>
+        <field name="model">account.register.payments</field>
+        <field name="inherit_id" ref="account.view_account_payment_from_invoices"/>
         <field name="arch" type="xml">
             <field name="journal_id" position="attributes">
                 <attribute name="string">Bank Account</attribute>
             </field>
 
-            <!--<field name="payment_method_id" position="replace">-->
-                <!--<field name="payment_method_id" string="Payment Method" widget="selection" attrs="{'invisible': [('amount', '=', 0)]}"/>-->
-            <!--</field>-->
+            <field name="payment_method_id" position="replace">
+                <field name="payment_method_id" string="Payment Method" widget="selection" attrs="{'invisible': [('amount', '=', 0)]}"/>
+            </field>
         </field>
     </record>
 
@@ -251,7 +266,8 @@
                 <attribute name="string">Customer/Vendor</attribute>
             </field>
             <field name="state" position="after">
-                <field name="has_been_reviewed" optional="hide"/>
+                <field name="has_been_cashed"/>
+                <field name="has_been_voided"/>
             </field>
         </field>
     </record>
@@ -274,6 +290,10 @@
             <field name="partner_id" position="attributes">
                 <attribute name="string">Customer/Vendor</attribute>
             </field>
+            <field name="state" position="after">
+                <field name="has_been_cashed"/>
+                <field name="has_been_voided"/>
+            </field>
         </field>
     </record>
 
@@ -293,6 +313,7 @@
     <record id="action_account_pay_bill_usa" model="ir.actions.act_window">
         <field name="name">Pay Bill</field>
         <field name="res_model">account.payment</field>
+        <field name="view_type">form</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account.view_account_payment_invoice_form"/>
         <field name="context">{'default_invoice_ids': [(4, active_id, None)]}</field>
@@ -302,23 +323,9 @@
     <!-- Change Payments action title-->
     <record id="account.action_account_payments" model="ir.actions.act_window">
         <field name="name">Customer Payments</field>
-        <field name="context">{
-            'summary_amount': True,
-            'default_payment_type': 'inbound',
-            'default_partner_type': 'customer',
-            'search_default_inbound_filter': 1,
-            'res_partner_search_mode': 'customer',}
-        </field>
     </record>
     <record id="account.action_account_payments_payable" model="ir.actions.act_window">
         <field name="name">Bill Payments</field>
-        <field name="context">{
-            'summary_amount': True,
-            'default_payment_type': 'outbound',
-            'default_partner_type': 'supplier',
-            'search_default_outbound_filter': 1,
-            'res_partner_search_mode': 'supplier',}
-        </field>
     </record>
 
     <!-- Change Payments menu title -->
@@ -337,49 +344,91 @@
         <field name="arch" type="xml">
             <!-- Extend search -->
             <field name="name" position="attributes">
-                <attribute name="filter_domain">
-                    ['|', ('name', 'ilike', self), '|', ('communication', 'ilike', self), ('move_name', 'ilike', self)]
-                </attribute>
+                <attribute name="filter_domain">['|', ('name', 'ilike', self), '|', ('communication', 'ilike', self), ('move_name', 'ilike', self)]</attribute>
             </field>
 
             <field name="company_id" position="after">
                 <!-- This is a widget filter
-                We have the syntax as follows: name is the specific field, string is the name of QWeb template,
-                context is additional parameters that you want to transfer and help is always "__widget__" -->
-                <filter name="amount"
-                        string="AmountSearchRange"
-                        context='{
-                            "title_display": "Search by Payment Amount",
-                            "name": "amount",
-                            "help": "__widget__"}'
-                />
-
+                    We have the syntax as follows: name is the specific field, string is the name of QWeb template,
+                     context is additional parameters that you want to transfer and help is always "__widget__"
+                -->
+                <filter name="amount" string="AmountSearchRange" help="__widget__"
+                        context='{"title_display": "Search by Payment Amount"}'/>
                 <separator/>
             </field>
 
             <filter name="outbound_filter" position="attributes">
                 <attribute name="invisible">1</attribute>
             </filter>
+
             <filter name="inbound_filter" position="attributes">
                 <attribute name="invisible">1</attribute>
             </filter>
-            <filter name="transfers_filter" position="attributes">
+
+            <filter domain="[('payment_type','=','transfer')]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </filter>
-            <filter name="state" position="attributes">
+
+            <filter context="{'group_by': 'state'}" position="attributes">
                 <attribute name="string">Status</attribute>
             </filter>
-            <filter name="journal" position="attributes">
+
+            <filter context="{'group_by': 'partner_id'}" position="attributes">
+                <attribute name="string">Customer/Vendor</attribute>
+                <!--<attribute name="invisible">context.get('default_payment_type') != 'inbound'</attribute>-->
+            </filter>
+
+            <filter context="{'group_by': 'journal_id'}" position="attributes">
                 <attribute name="string">Bank Account</attribute>
             </filter>
 
-            <!--<filter name="partner" position="attributes">
-                <attribute name="invisible">context.get('default_payment_type') != 'inbound'</attribute>
+            <filter name="state_sent" position="before">
+                <filter string="Checks Have Been Cashed"
+                        domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                        ('has_been_cashed', '=', True), ('has_been_voided', '=', False)]" name="checks_been_cashed"/>
+                <filter string="Checks to Cash"
+                        domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
+                        ('has_been_cashed', '=', False), ('state', 'in', ['posted', 'sent']),
+                        ('has_been_voided', '=', False)]" name="checks_to_cash"/>
             </filter>
-            <filter name="partner" position="before">
+
+            <!--<filter context="{'group_by': 'partner_id'}" position="before">
                 <filter string="Vendor" context="{'group_by': 'partner_id'}"
                         invisible="context.get('default_payment_type') != 'outbound'" />
             </filter>-->
+        </field>
+    </record>
+
+    <!--Cancel and Delete button in Payment Form-->
+    <record id="view_account_payment_form_button_usa" model="ir.ui.view">
+        <field name="name">account.payment.cancel.button.usa</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account_cancel.payment_cancel_form_inherit"/>
+        <field name="arch" type="xml">
+            <button name="cancel" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </button>
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="cancel" string="Cancel" attrs="{'invisible':[('show_cancel_button', '!=', 1)]}"
+                        type="object" confirm="Are you sure you want to cancel this payment?"/>
+                <button name="cancel" string="Cancel" attrs="{'invisible':[('show_cancel_button', '!=', 2)]}"
+                        type="object"
+                        confirm="This payment has been applied. Canceling this payment will remove it from all related invoice(s). Do you still want to cancel it?"/>
+                <button name="cancel" string="Cancel" attrs="{'invisible':[('show_cancel_button', '!=', 3)]}"
+                        type="object"
+                        confirm="This payment has been applied. Canceling this payment will remove it from all related bill(s). Do you still want to cancel it?"/>
+                <button name="cancel" string="Cancel"
+                        attrs="{'invisible':[('show_cancel_button', '!=', 4)]}"
+                        type="object"
+                        confirm="This payment has been reconciled. Canceling this payment will make your reconciliation unbalanced. Do you still want to cancel it?"/>
+                <button name="delete_payment" type="object" string="Delete" confirm="Are you sure you want to delete this payment?"/>
+                <field name="has_been_voided" invisible="1"/>
+                <button name="action_void" string="Void"
+                        attrs="{'invisible':['|', ('has_been_voided', '!=', False), ('state', 'in', ['draft', 'cancelled'])]}"
+                        type="object"
+                        help="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"
+                        confirm="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"/>
+            </xpath>
         </field>
     </record>
 </odoo>

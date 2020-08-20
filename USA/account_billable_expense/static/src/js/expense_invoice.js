@@ -7,16 +7,13 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
     var view_dialogs = require('web.view_dialogs');
     var ListView = require('web.ListView');
     var registry = require('web.field_registry');
-    // var FieldChar = registry.get('char');
-    var basic_fields = require('web.basic_fields');
-    var FieldChar = basic_fields.FieldChar;
+    var FieldChar = registry.get('char');
     var SelectCreateDialog = view_dialogs.SelectCreateDialog;
+    var SearchView = require('web.SearchView');
     var ListController = require('web.ListController');
     var ListRenderer = require('web.ListRenderer');
     var BasicView = require('web.BasicView');
     var _t = core._t;
-
-
 
     //Didn't change anything here, just need it
     var ViewDialog = Dialog.extend({
@@ -104,13 +101,6 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
 
     //ListView to render the lock on checkbox
     var USAListView = ListView.extend({
-        withSearchBar: false,
-        // determines the search menus available and their orders
-        searchMenuTypes: [],
-        // determines if a control panel should be instantiated
-        withControlPanel: false,
-        // determines if a search panel could be instantiated
-        withSearchPanel: false,
         config: _.extend({}, BasicView.prototype.config, {
             Renderer: USAListRenderer,
             Controller: ListController,
@@ -157,41 +147,60 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
         },
 
         //Change the view + logic here
-        setup: function (fieldsViews) {
+        setup: function (search_defaults, fields_views) {
             var self = this;
             var fragment = document.createDocumentFragment();
 
-            var domain = this.domain;
-            if (this.initialIDs) {
-                domain = domain.concat([['id', 'in', this.initialIDs]]);
-            }
+            var searchDef = $.Deferred();
 
-            var listView = new USAListView(fieldsViews.list, _.extend({
-                context: this.context,
-                domain: domain,
-                modelName: this.res_model,
-                hasSelectors: !self.options.disable_multiple_selection,
-                readonly: true,
-                withBreadcrumbs: false,
-                withSearchPanel: false,
-            }, self.options.list_view_options));
-            listView.setController(SelectCreateListController);
+            // Set the dialog's header and its search view
+            var $header = $('<div/>').addClass('o_modal_header').appendTo(fragment);
+            var $pager = $('<div/>').addClass('o_pager').appendTo($header);
+            var options = {
+                $buttons: $('<div/>').addClass('o_search_options').appendTo($header),
+                search_defaults: search_defaults,
+            };
+            var searchview = new SearchView(this, this.dataset, fields_views.search, options);
+            searchview.prependTo($header).done(function () {
+                var d = searchview.build_search_data();
+                if (self.initial_ids) {
+                    d.domains.push([["id", "in", self.initial_ids]]);
+                    self.initial_ids = undefined;
+                }
+                var searchData = self._process_search_data(d.domains, d.contexts, d.groupbys);
+                searchDef.resolve(searchData);
+            });
 
-            return listView.getController(self).then(function (controller) {
-                self.viewController = controller;
+            return $.when(searchDef).then(function (searchResult) {
+                // Set the list view
+                var listView = new USAListView(fields_views.list, _.extend({
+                    context: searchResult.context,
+                    domain: searchResult.domain,
+                    groupBy: searchResult.groupBy,
+                    modelName: self.dataset.model,
+                    hasSelectors: !self.options.disable_multiple_selection,
+                    readonly: true,
+                }, self.options.list_view_options));
+                listView.setController(SelectCreateListController);
+                return listView.getController(self);
+            }).then(function (controller) {
+                self.list_controller = controller;
+
+
+                // Set the dialog's buttons
                 self.__buttons = [{
                     text: _t("Cancel"),
-                    classes: "btn-secondary",
+                    classes: "btn-default o_form_button_cancel",
                     close: true,
                 }];
 
                 self.__buttons.unshift({
                     text: _t("Add as one item"),
-                    classes: "btn-secondary o_add_as_one_btn",
+                    classes: "btn-default o_add_as_one_btn",
                     disabled: true,
                     close: true,
                     click: function () {
-                        var records = self.viewController.getSelectedRecords();
+                        var records = self.list_controller.getSelectedRecords();
 
                         var values = _.map(records, function (record) {
                             return record.res_id
@@ -206,7 +215,7 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
                     disabled: true,
                     close: true,
                     click: function () {
-                        var records = self.viewController.getSelectedRecords();
+                        var records = self.list_controller.getSelectedRecords();
 
                         var values = _.map(records, function (record) {
                             return record.res_id
@@ -214,9 +223,12 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
                         self.on_selected(values, 'item');
                     },
                 });
-                return self.viewController.appendTo(fragment);
+
+                return self.list_controller.appendTo(fragment);
             }).then(function () {
-                self.viewController.do_show();
+                searchview.toggle_visibility(false);
+                self.list_controller.do_show();
+                //self.list_controller.renderPager($pager);
                 return fragment;
             });
         },
@@ -233,7 +245,7 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
 
         _render: function () {
             this._super();
-            var self = this;
+            var self = this
             // bind button
             this.$el.unbind('click').bind('click', function () {
                 self.onClickExpenseBtn();
@@ -251,7 +263,7 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
 
                 // get ids and open popup
                 self._rpc({
-                    model: 'account.move',
+                    model: 'account.invoice',
                     method: 'get_customer_billable_expenses',
                     args: [[self.invoice_id]],
                 }).then(function (expense_ids) {
@@ -273,7 +285,7 @@ odoo.define('account_billable_expense.BtnAssignExpense', function (require) {
             var self = this;
 
             this._rpc({
-                model: 'account.move',
+                model: 'account.invoice',
                 method: 'from_expense_to_invoice',
                 args: [[self.invoice_id], values, mode],
             }).then(function(result) {

@@ -2,3 +2,5 @@ numpy
 pandas
 slackclient
 twilio
+xlsxwriter
+libsass

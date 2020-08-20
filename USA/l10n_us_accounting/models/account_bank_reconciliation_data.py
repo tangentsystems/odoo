@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+# Copyright 2020 Novobi
+# See LICENSE file for full copyright and licensing details.
+
 
 from odoo import models, api, _, fields
 from odoo.tools import float_compare
@@ -7,6 +8,9 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo.tools.misc import formatLang
 from datetime import datetime
 from odoo.exceptions import Warning
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class BankReconciliationData(models.Model):
@@ -15,7 +19,8 @@ class BankReconciliationData(models.Model):
     _rec_name = 'statement_ending_date'
 
     journal_id = fields.Many2one('account.journal', 'Account')
-    currency_id = fields.Many2one('res.currency', readonly=True, default=lambda self: self.env.company.currency_id)
+    currency_id = fields.Many2one('res.currency',
+                                  readonly=True, default=lambda self: self.env.user.company_id.currency_id)
     state = fields.Selection([
         ('draft', 'Draft'),
         ('reconciled', 'Reconciled'),
@@ -30,6 +35,8 @@ class BankReconciliationData(models.Model):
 
     previous_reconciliation_id = fields.Many2one('account.bank.reconciliation.data')
 
+    applied_bank_statement_line_ids = fields.Many2many('account.bank.statement.line', 'matched_stmt_line_table')
+
     # Data for report
     data_line_ids = fields.One2many('account.bank.reconciliation.data.line', 'bank_reconciliation_data_id')
     change_transaction_ids = fields.One2many('account.bank.reconciliation.data.line', 'bank_reconciliation_data_id',
@@ -43,6 +50,7 @@ class BankReconciliationData(models.Model):
     deposits_uncleared_ids = fields.One2many('account.bank.reconciliation.data.line', 'bank_reconciliation_data_id',
                                              domain=[('transaction_type', '=', 'deposit'), ('is_cleared', '=', False)])
     aml_ids = fields.Many2many('account.move.line')
+    batch_ids = fields.Many2many('account.batch.payment')
 
     discrepancy_entry_id = fields.Many2one('account.move')
     difference = fields.Monetary('Adjustment')
@@ -50,6 +58,7 @@ class BankReconciliationData(models.Model):
     deposits_cleared = fields.Monetary('Deposits Cleared')
     payments_uncleared = fields.Monetary('Uncleared Payments')  # Negative amount
     deposits_uncleared = fields.Monetary('Uncleared Deposits')
+    uncleared_amount = fields.Monetary('Uncleared Transactions')  # no longer use
     register_balance = fields.Monetary('Register Balance')
     change_amount = fields.Monetary('Changes', compute='_compute_change_amount')
     payment_count = fields.Char()
@@ -66,11 +75,15 @@ class BankReconciliationData(models.Model):
         if defaults.get('journal_id', False):
             journal_id = defaults['journal_id']
 
-            draft_reconciliation = self.search([('journal_id', '=', journal_id), ('state', '=', 'draft')])
+            draft_reconciliation = self.env['account.bank.reconciliation.data']\
+                .search([('journal_id', '=', journal_id), ('state', '=', 'draft')])
+
             if draft_reconciliation:
                 return defaults
 
-            previous_reconciliation = self.search([('journal_id', '=', journal_id), ('state', '=', 'reconciled')], order='id desc', limit=1)
+            previous_reconciliation = self.env['account.bank.reconciliation.data']\
+                .search([('journal_id', '=', journal_id), ('state', '=', 'reconciled')],
+                        order='id desc', limit=1)
             if previous_reconciliation:
                 defaults['previous_reconciliation_id'] = previous_reconciliation.id
                 defaults['beginning_balance'] = previous_reconciliation.ending_balance
@@ -78,6 +91,7 @@ class BankReconciliationData(models.Model):
 
         return defaults
 
+    @api.multi
     def open_reconcile_screen(self):
         if self.env.context.get('edit_info', False):
             return True
@@ -89,24 +103,38 @@ class BankReconciliationData(models.Model):
         action = self._get_reconciliation_screen(self.id)
         return action
 
+    @api.model
+    def update_bank_reconciliation_report(self):
+        _logger.info("Update Bank Reconciliation Reports")
+        reconciled_reports = self.sudo().search([('state', '=', 'reconciled')])
+        for report in reconciled_reports:
+            payments_uncleared = - sum(rec.amount for rec in report.payments_uncleared_ids)
+            deposits_uncleared = sum(rec.amount for rec in report.deposits_uncleared_ids)
+            register_balance = report.ending_balance + payments_uncleared + deposits_uncleared
+            report.write({'payments_uncleared': payments_uncleared,
+                          'deposits_uncleared': deposits_uncleared,
+                          'register_balance': register_balance})
+
     ############################
     #  MAIN FUNCTIONS
     ############################
-
-    def check_difference_amount(self, aml_ids, difference, cleared_payments, cleared_deposits):
+    @api.multi
+    def check_difference_amount(self, aml_ids, batch_ids,
+                                difference, cleared_payments, cleared_deposits):
         self.ensure_one()
-        self.write({
-            'difference': difference,
-            'payments_cleared': cleared_payments,
-            'deposits_cleared': cleared_deposits,
-            # 'aml_ids': [(6, 0, aml_ids)],
-            'reconcile_on': datetime.today(),
-        })
+
+        self.write({'difference': difference,
+                    'payments_cleared': cleared_payments,
+                    'deposits_cleared': cleared_deposits,
+                    # 'aml_ids': [(6, 0, aml_ids)],
+                    # 'batch_ids': [(6, 0, batch_ids)],
+                    'reconcile_on': datetime.today(),
+                    })
 
         if float_compare(difference, 0.0, precision_digits=2) != 0:  # difference != 0
-            formatted_value = formatLang(self.env, 0.0, currency_obj=self.env.company.currency_id)
+            formatted_value = formatLang(self.env, 0.0, currency_obj=self.env.user.company_id.currency_id)
             return {
-                'name': "Your difference isn't {} yet".format(formatted_value),
+                'name': "Your difference isn't %s yet" % formatted_value,
                 'type': 'ir.actions.act_window',
                 'res_model': 'account.bank.reconciliation.difference',
                 'view_type': 'form',
@@ -115,14 +143,18 @@ class BankReconciliationData(models.Model):
                 'context': {'default_bank_reconciliation_data_id': self.id},
                 'target': 'new',
             }
-        return self.do_reconcile()
+        else:
+            return self.do_reconcile()
 
+    @api.multi
     def do_reconcile(self):
         self.ensure_one()
 
-        # Mark AML and all reviewed bank statement lines as reconciled
-        reconciled_items = self.aml_ids.filtered(lambda x: x.temporary_reconciled)
-        reconciled_items.mark_bank_reconciled()
+        # Mark AML as reconciled
+        self.aml_ids.filtered(lambda x: x.temporary_reconciled).mark_bank_reconciled()
+
+        # Mark Batch Depost as reconciled
+        self.batch_ids.filtered(lambda x: x.temporary_reconciled).mark_bank_reconciled()
 
         # Create report
         self._create_report_line()
@@ -146,7 +178,6 @@ class BankReconciliationData(models.Model):
                                  'default_vendor_id': self.journal_id.partner_id and self.journal_id.partner_id.id or False}
             return action
 
-        # Reset temporary_reconciled for next reconciliation
         self._reset_transactions()
 
         # Redirect to report form, main to clear breadcrumb
@@ -154,6 +185,7 @@ class BankReconciliationData(models.Model):
         action['res_id'] = self.id
         return action
 
+    @api.multi
     def undo_last_reconciliation(self):
         if not self.previous_reconciliation_id:
             raise Warning(_('There are no previous reconciliations to undo.'))
@@ -167,6 +199,7 @@ class BankReconciliationData(models.Model):
         self.unlink()
         return action
 
+    @api.multi
     def _undo(self):
         """
         Undo last reconciliation
@@ -175,28 +208,33 @@ class BankReconciliationData(models.Model):
 
         # Reset some fields
         prev_id = self.previous_reconciliation_id
-        prev_id.with_context(undo_reconciliation=True).write({
-            'state': 'draft',
-            'ending_balance': self.ending_balance,
-            'statement_ending_date': self.statement_ending_date,
-            'data_line_ids': [(5,)]
-        })
+        prev_id.with_context(undo_reconciliation=True).write({'state': 'draft', 'ending_balance': self.ending_balance,
+                                                              'statement_ending_date': self.statement_ending_date,
+                                                              'data_line_ids': [(5,)]})
 
         # Un-mark reconciled, don't change temporary_reconciled so they can still be marked in reconciliation screen
         prev_id.aml_ids.filtered(lambda x: x.bank_reconciled).undo_bank_reconciled()
+        prev_id.batch_ids.filtered(lambda x: x.state == 'reconciled').undo_bank_reconciled()
 
-        # Reset status of all reconciled bank statement lines back to 'confirm'
-        prev_id.aml_ids.mapped('statement_line_id').filtered(lambda x: x.status == 'reconciled').write({'status': 'confirm'})
+        # Uncheck newly undo statement line
+        undo_line_ids = prev_id.applied_bank_statement_line_ids.filtered(lambda x: x.status != 'confirm')
+        if undo_line_ids:
+            undo_line_ids.mapped('applied_aml_ids').write({'temporary_reconciled': False})
+            undo_line_ids.mapped('applied_batch_ids').write({'temporary_reconciled': False})
+            prev_id.write({'applied_bank_statement_line_ids': [(3, undo.id) for undo in undo_line_ids]})
 
         # Reverse discrepancy entry, if any
         if prev_id.discrepancy_entry_id:
-            reverse_move_id = prev_id.discrepancy_entry_id.with_context(discrepancy_entry=True)._reverse_moves(cancel=True).ids
+            reverse_move_id = prev_id.discrepancy_entry_id.with_context(discrepancy_entry=True).reverse_moves(journal_id=self.journal_id)
             reverse_move = self.env['account.move'].browse(reverse_move_id)
             reverse_move.line_ids.mark_bank_reconciled()
 
+    @api.multi
     def close_without_saving(self):
         self.ensure_one()
+
         self._reset_transactions()
+
         super(BankReconciliationData, self).unlink()
         return self.env.ref('account.open_account_journal_dashboard_kanban').read()[0]
 
@@ -220,17 +258,32 @@ class BankReconciliationData(models.Model):
                              'bank_reconciliation_data_id': data_id}
         return action
 
+    @api.multi
     def _create_report_line(self):
         self.ensure_one()
-        line_env = self.env['account.bank.reconciliation.data.line'].sudo()
+
+        DataLine = self.env['account.bank.reconciliation.data.line']
+        for batch in self.batch_ids:
+            DataLine.sudo().create({
+                'batch_id': batch.id,
+                'name': batch.name,
+                'date': batch.date,
+                'memo': batch.name,
+                'amount': batch.amount,
+                'amount_signed': batch.amount * -1,
+                'transaction_type': 'deposit',
+                'is_cleared': batch.temporary_reconciled,
+                'bank_reconciliation_data_id': self.id,
+            })
 
         for line in self.aml_ids:
-            line_env.create({
+            DataLine.sudo().create({
                 'aml_id': line.id,
                 'name': line.move_id.name,
                 'date': line.date,
                 'memo': line.name,
-                'check_number': line.payment_id.check_number if line.payment_id and line.payment_id.check_number else '',
+                'check_number': line.payment_id.check_number
+                if line.payment_id and line.payment_id.check_number else '',
                 'payee_id': line.partner_id.id if line.partner_id else False,
                 'amount': line.credit if line.credit > 0 else line.debit,
                 'amount_signed': line.credit if line.credit > 0 else (line.debit * -1),
@@ -249,16 +302,36 @@ class BankReconciliationData(models.Model):
                        self.journal_id.default_credit_account_id.id]
         domain_date = [('date', '>', old_date), ('date', '<=', new_date)] if old_date else []
 
-        domain_aml = [('account_id', 'in', account_ids), ('bank_reconciled', '=', False)]
+        # aml
+        domain_aml = [('account_id', 'in', account_ids), ('statement_line_id', '=', False),
+                      ('bank_reconciled', '=', False), ('temporary_reconciled', '=', True)]
         domain_aml.extend(domain_date)
         aml_ids = self.env['account.move.line'].search(domain_aml)
-        aml_ids.filtered(lambda r: not r.statement_line_id and r.temporary_reconciled).write({'temporary_reconciled': False})
-        aml_ids.filtered(lambda r: r.statement_line_id and not r.temporary_reconciled).write({'temporary_reconciled': True})
+        aml_ids.write({'temporary_reconciled': False})
+
+        # batch
+        domain_batch = [('journal_id', '=', self.journal_id.id), ('state', '!=', 'reconciled'),
+                        ('temporary_reconciled', '=', True)]
+        domain_batch.extend(domain_date)
+        batch_ids = self.env['account.batch.payment'].search(domain_batch)
+        batch_ids.write({'temporary_reconciled': False})
+
+    def _mark_matched_transaction(self, old_date, new_date):
+        """
+        Mark transactions when extend the ending date
+        """
+        aml_ids = self.applied_bank_statement_line_ids.mapped('applied_aml_ids')\
+            .filtered(lambda x: old_date < x.date <= new_date)
+        batch_ids = self.applied_bank_statement_line_ids.mapped('applied_batch_ids')\
+            .filtered(lambda x: old_date < x.date <= new_date)
+
+        aml_ids.write({'temporary_reconciled': True})
+        batch_ids.write({'temporary_reconciled': True})
 
     ############################
     #  CRUD
     ############################
-
+    @api.multi
     def write(self, vals):
         # if it's from Undo, we want to keep the same state of transactions
         if vals.get('statement_ending_date', False) and not self.env.context.get('undo_reconciliation', False):
@@ -268,8 +341,10 @@ class BankReconciliationData(models.Model):
 
                 if new_date > old_date:
                     record._reset_transactions(old_date, new_date)
+                    record._mark_matched_transaction(old_date, new_date)
 
-        return super(BankReconciliationData, self).write(vals)
+        res = super(BankReconciliationData, self).write(vals)
+        return res
 
 
 class BankReconciliationDataLine(models.Model):
@@ -283,36 +358,36 @@ class BankReconciliationDataLine(models.Model):
     payee_id = fields.Many2one('res.partner', 'Payee')
     amount = fields.Monetary('Amount')
     amount_signed = fields.Monetary('Amount Signed')
-    currency_id = fields.Many2one('res.currency', readonly=True, default=lambda self: self.env.company.currency_id)
+    currency_id = fields.Many2one('res.currency',
+                                  readonly=True, default=lambda self: self.env.user.company_id.currency_id)
     transaction_type = fields.Selection([('payment', 'Payment'), ('deposit', 'Deposit')])
     is_cleared = fields.Boolean('Cleared?')
     bank_reconciliation_data_id = fields.Many2one('account.bank.reconciliation.data', ondelete='cascade')
     # Change Section
     amount_change = fields.Monetary('Amount Change', compute='compute_change_status', store=True)
     current_amount = fields.Monetary('Current Amount', compute='compute_change_status', store=True)
-    change_status = fields.Selection(
-        [('normal', 'Normal'), ('canceled', 'Canceled'), ('deleted', 'Deleted'), ('changed', 'Amount Changed')],
-        default='normal', compute='compute_change_status', store=True)
+    change_status = fields.Selection([('normal', 'Normal'), ('canceled', 'Canceled'), ('deleted', 'Deleted'),
+                                      ('changed', 'Amount Changed')],
+                                     default='normal', compute='compute_change_status', store=True)
     has_been_canceled = fields.Boolean()
     aml_id = fields.Many2one('account.move.line')
     batch_id = fields.Many2one('account.batch.payment')
 
-    @api.depends('aml_id', 'aml_id.move_id.state')
+    @api.depends('aml_id', 'aml_id.move_id.state', 'batch_id', 'batch_id.state', 'batch_id.amount')
     def compute_change_status(self):
         for record in self:
-            change_status = current_amount = amount_change = False
-            if not record.aml_id:
-                change_status = 'deleted'
-                current_amount = 0
-                amount_change = record.amount_signed
+            if not record.aml_id and not record.batch_id:
+                record.change_status = 'deleted'
+                record.current_amount = 0
+                record.amount_change = record.amount_signed
             elif (record.aml_id and record.aml_id.move_id.state == 'draft') or record.has_been_canceled:
-                change_status = 'canceled'
-                current_amount = 0
-                amount_change = record.amount_signed
+                record.change_status = 'canceled'
                 record.has_been_canceled = True
+                record.current_amount = 0
+                record.amount_change = record.amount_signed
+            elif record.batch_id and record.batch_id.amount != record.amount:
+                record.change_status = 'changed'
+                record.current_amount = record.batch_id.amount
+                record.amount_change = (record.amount - record.current_amount) * -1
             else:
-                change_status = 'normal'
-
-            record.change_status = change_status
-            record.current_amount = current_amount
-            record.amount_change = amount_change
+                record.change_status = 'normal'

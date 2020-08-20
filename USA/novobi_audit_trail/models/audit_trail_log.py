@@ -28,6 +28,8 @@ class AuditTrailLog(models.Model):
                                  selection=[('create', 'Create'), ('read', 'Read'), ('write', 'Edit'),
                                             ('unlink', 'Delete')], required=True)
     create_date = fields.Datetime(string='Date Changed')
+    parent_id = fields.Integer(string='Parent ID')
+    parent_model_id = fields.Char(string='Parent Model')
 
     @api.model
     def create(self, vals):
@@ -35,7 +37,8 @@ class AuditTrailLog(models.Model):
             vals['name'] = self.env['ir.sequence'].sudo().next_by_code('audit_trail_log') or _('New Audit Log')
         res = super().create(vals)
         return res
-    
+
+    @api.multi
     def action_open_all_logs(self):
         self.ensure_one()
         action = self.env.ref('novobi_audit_trail.action_audit_trail_log_tree').read()[0]

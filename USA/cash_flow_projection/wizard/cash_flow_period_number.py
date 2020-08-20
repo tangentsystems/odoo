@@ -16,6 +16,7 @@ class PeriodSettings(models.TransientModel):
     period_number = fields.Integer(string='Number of Periods',
                                    default=lambda self: self.env.user.company_id.cash_flow_period_number)
     
+    @api.multi
     def set_period_number(self):
         """
         Set the number of periods to show in the report

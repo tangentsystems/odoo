@@ -4,6 +4,7 @@ odoo.define('account_budget_advanced.usa_budget', function (require) {
 var core = require('web.core');
 var framework = require('web.framework');
 var session = require('web.session');
+var crash_manager = require('web.crash_manager');
 var account_report = require('account_reports.account_report');
 var field_utils = require('web.field_utils');
 
@@ -90,8 +91,8 @@ var usa_budget = account_report.extend({
             url: '/account_reports',
             data: action_data,
             success: def.resolve.bind(def),
-            error: function (error) {
-                self.call('crash_manager', 'rpc_error', error);
+            error: function () {
+                crash_manager.rpc_error.apply(crash_manager, arguments);
                 def.reject();
             },
             complete: framework.unblockUI,

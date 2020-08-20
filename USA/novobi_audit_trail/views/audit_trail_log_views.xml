@@ -97,7 +97,7 @@
                     <filter string="Partner" name="group_by_partner" domain="[]" context="{'group_by': 'res_partner_id'}"/>
                     <filter string="Resource Name" name="group_by_log_name" domain="[]"
                             context="{'group_by': 'res_name'}"/>
-                    <filter string="Resource Model" name="group_by_res_model" domain="[]"
+                    <filter string="Tracking Model" name="group_by_res_model" domain="[]"
                             context="{'group_by': 'model_id'}"/>
                     <filter string="Audit Rule" name="group_by_rule" domain="[]"
                             context="{'group_by': 'rule_id'}"/>

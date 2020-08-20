@@ -14,7 +14,7 @@
 
             <group position="before">
                 <group>
-                    <field name="is_validate_invoice"/>
+                    <field name="is_validate_invoice" groups="account.group_account_user"/>
                 </group>
             </group>
         </field>
