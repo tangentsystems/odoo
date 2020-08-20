@@ -21,8 +21,7 @@
     # any module necessary for this one to work correctly
     'depends': [
         'l10n_us_accounting',
-        'account_dashboard',
-        'account_reports_cash_flow'
+        'account_dashboard'
     ],
     'data': [
         'views/assets.xml',

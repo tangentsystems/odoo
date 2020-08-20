@@ -1,95 +1,114 @@
 odoo.define("tangent_account_dashboard.journal_data_item", function (require) {
-    var fieldRegistry = require('web.field_registry');
+    'use strict';
 
-    var JournalData = fieldRegistry.get('journal_data');
-    var session = require('web.session');
+    let AccountDashboard = require('account_dashboard.account_dashboard');
 
-    JournalData.include({
+    AccountDashboard.include({
         init: function() {
             this._super.apply(this, arguments);
-            this.jsLibs.push('/tangent_account_dashboard/static/src/js/libs/nvd3_stack_group_chart.js');
+            this.jsLibs.push('/tangent_account_dashboard/static/src/js/libs/stack_group_chart.js');
         },
-        _render_chart: function (parent, data, data_type, extra_graph_setting) {
-            if (extra_graph_setting && extra_graph_setting.normal_value) {
-                this.currency_symbol = '';
-            }
-
-            if (extra_graph_setting && extra_graph_setting.stack_group_bar) {
-                var self = this;
-
-                parent.empty();
-
-                // Prepare data for stack group chart
-                var graph_data = [];
-                _.each(data, function (item) {
-                    graph_data.push(self._prepare_stack_group_data(item));
+        _renderChart: function () {
+            if (this.graph.setting.stack_group_bar) {
+                let self = this;
+                let data = this._prepare_stack_group_chart_data();
+                let graph_view = this.$el.find('.content_kanban_view');
+                graph_view.empty();
+                graph_view.css('cssText', 'position: initial !important;');
+                let canvas = $('<canvas/>');
+                graph_view.append(canvas);
+                let context = canvas[0].getContext('2d');
+                new Chart(context, {
+                    type: 'groupableBar',
+                    data: data,
+                    options: {
+                        legend: {
+                            labels: {
+                                generateLabels: function (chart) {
+                                    return Chart.defaults.global.legend.labels.generateLabels.apply(this, [chart]).filter(function (item, i) {
+                                        return i <= 4;
+                                    });
+                                }
+                            }
+                        },
+                        scales: {
+                            yAxes: [{
+                                stacked: true,
+                                ticks: {
+                                    callback: (value, index, values) => self._formatCurrencyValue(value, 'compact')
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            callbacks: {
+                                label: (tooltipItem, data) => {
+                                    let label = (data.datasets[tooltipItem.datasetIndex].label + ': ') || '';
+                                    let value = self._formatCurrencyValue((data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index] || 0));
+                                    return label + value;
+                                }
+                            }
+                        },
+                    }
                 });
-
-                // Render chart
-                nv.addGraph(function () {
-                    var div_svg = $('<div class="table_svg" style="width:100%; height:100%"></div>');
-                    parent.append(div_svg);
-
-                    self.$svg = parent.find('.table_svg').append('<svg style="width:100%; height:100%">');
-
-                    var svg = d3.select(self.$('.table_svg svg')[0]);
-
-                    self.chart = nv.models.GroupedStackedBarChart().percentageMode(false);
-                    self.chart.tooltip.valueFormatter(d3.format(self.format_currency_for_tooltip()));
-                    self.chart.valueFormat(self.format_currency);
-
-                    svg.datum(self._customizeData(graph_data, data_type));
-                    svg.transition()
-                        .duration(600)
-                        .call(self.chart);
-
-                    nv.utils.windowResize(self.chart.update);
-                    self.chart.update();
-                    d3.selectAll(".nv-series").style("cursor", "default").on("click", null);
-                });
-
             } else {
                 return this._super.apply(this, arguments);
             }
         },
-        _prepare_stack_group_data(data) {
-            var result = {
-                key: data.key,
-                color: data.color,
-                label: data.key,
-                groups: []
-            };
-            var is_income = data.key === 'Income';
-
-            _.each(data.values, function (item) {
-                result.groups.push({
-                    group_label: item.name,
-                    group_key: item.name,
-                    stacks: [{
-                            stack_key: 'income',
-                            stack_label: 'income',
-                            stack_value: is_income ? item.y : 0
-                        }, {
-                            stack_key: 'expense',
-                            stack_label: 'expense',
-                            stack_value: is_income ? 0 : item.y
-                        }]
-                });
-            });
-
-            return result
-        },
-        format_currency_for_tooltip: function() {
-            var currency = session.get_currency(this.data.currency_id);
-            var formatted_value = ',.2f';
-            if (currency) {
-                if (currency.position === "after") {
-                    formatted_value += currency.symbol;
-                } else {
-                    formatted_value = currency.symbol + formatted_value;
-                }
-            }
-            return formatted_value;
+        _prepare_stack_group_chart_data() {
+            let result = {};
+            result.labels = this.graph.label;
+            result.datasets = [{
+                label: this.graph.data[0].label, // Income - stack 1
+                backgroundColor: this.graph.data[0].backgroundColor,
+                data: this.graph.data[0].data,
+                stack: 1
+            }, {
+                label: this.graph.data[1].label, // Operating Expense
+                backgroundColor: this.graph.data[1].backgroundColor,
+                data: Array(this.graph.data[1].data.length).fill(0),
+                stack: 1
+            }, {
+                label: this.graph.data[2].label, // Cost of Revenue
+                backgroundColor: this.graph.data[2].backgroundColor,
+                data: Array(this.graph.data[2].data.length).fill(0),
+                stack: 1
+            }, {
+                label: this.graph.data[3].label, // Depreciation
+                backgroundColor: this.graph.data[3].backgroundColor,
+                data: Array(this.graph.data[3].data.length).fill(0),
+                stack: 1
+            }, {
+                label: this.graph.data[4].label, // Other Expense
+                backgroundColor: this.graph.data[4].backgroundColor,
+                data: Array(this.graph.data[4].data.length).fill(0),
+                stack: 1
+            }, {
+                label: this.graph.data[0].label, // Income - stack 2
+                backgroundColor: this.graph.data[0].backgroundColor,
+                data: Array(this.graph.data[0].data.length).fill(0),
+                stack: 2
+            }, {
+                label: this.graph.data[1].label, // Operating Expense
+                backgroundColor: this.graph.data[1].backgroundColor,
+                data: this.graph.data[1].data,
+                stack: 2
+            }, {
+                label: this.graph.data[2].label, // Cost of Revenue
+                backgroundColor: this.graph.data[2].backgroundColor,
+                data: this.graph.data[2].data,
+                stack: 2
+            }, {
+                label: this.graph.data[3].label, // Depreciation
+                backgroundColor: this.graph.data[3].backgroundColor,
+                data: this.graph.data[3].data,
+                stack: 2
+            }, {
+                label: this.graph.data[4].label, // Other Expense
+                backgroundColor: this.graph.data[4].backgroundColor,
+                data: this.graph.data[4].data,
+                stack: 2
+            }];
+            return result;
         }
     });
 });
