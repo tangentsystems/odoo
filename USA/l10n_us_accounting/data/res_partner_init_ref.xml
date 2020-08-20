@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
-    <function id="init_ref_value_in_res_partner"
-              model="res.partner"
-              name="init_ref_value">
-    </function>
-</odoo>

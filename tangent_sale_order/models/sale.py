@@ -34,17 +34,15 @@ class SalesOrder(models.Model):
     validity_date = fields.Date(states=READONLY_STATES)
     date_order = fields.Datetime(states=READONLY_STATES)
     pricelist_id = fields.Many2one('product.pricelist', states=READONLY_STATES)
+    picking_policy = fields.Selection(states=READONLY_STATES)
     sale_order_option_ids = fields.One2many('sale.order.option', 'order_id', states=READONLY_STATES)
 
-    @api.multi
     def action_review_draft(self):
         return self.write({'state': 'draft'})
 
-    @api.multi
     def action_por(self):
         return self.write({'state': 'ready_quote'})
 
-    @api.multi
     def action_draft(self):
         orders = self.filtered(lambda s: s.state in ['cancel', 'draft', 'ready_quote', 'sent'])
         return orders.write({
@@ -53,7 +51,6 @@ class SalesOrder(models.Model):
             'signed_by': False,
         })
 
-    @api.multi
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, **kwargs):
         # Update ready_quote state

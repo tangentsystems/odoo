@@ -11,8 +11,10 @@ class TangentReportAccountFinancialReport(models.Model):
     def _get_balance(self, linesDict, currency_table, financial_report, field_names=None):
         res = super(TangentReportAccountFinancialReport, self)._get_balance(linesDict, currency_table,
                                                                             financial_report, field_names)
-        if res and self.figure_type == 'percents':
-            res[0]['balance'] *= 100
+
+        for rec in self:
+            if rec.figure_type == 'percents':
+                res[0]['balance'] *= 100
 
         return res
 
