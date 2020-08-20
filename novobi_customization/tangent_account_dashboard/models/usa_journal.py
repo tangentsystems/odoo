@@ -11,7 +11,7 @@ import calendar
 from odoo.addons.account_dashboard.utils.utils import get_list_companies_child, format_currency
 from odoo.addons.account_dashboard.utils.time_utils import get_list_period_by_type, BY_DAY, BY_WEEK, BY_MONTH, BY_QUARTER, BY_YEAR, BY_FISCAL_YEAR
 from odoo.addons.account_dashboard.utils.graph_utils import get_json_render, get_json_data_for_selection, get_data_for_graph, append_data_fetch_to_list
-from odoo.addons.account_dashboard.utils.graph_setting import get_chartjs_setting, get_linechart_format, get_barchart_format, get_info_data, get_chart_json
+from odoo.addons.l10n_custom_dashboard.utils.graph_setting import get_chartjs_setting, get_linechart_format, get_barchart_format, get_info_data, get_chart_json
 import re
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta

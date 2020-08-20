@@ -23,9 +23,9 @@
             <xpath expr="//button[@name='action_quotation_send'][1]" position="attributes">
                 <attribute name="states">ready_quote</attribute>
             </xpath>
-            <xpath expr="//button[@name='print_quotation'][1]" position="attributes">
-                <attribute name="states">draft_quote,draft,ready_quote</attribute>
-            </xpath>
+            <!--<xpath expr="//button[@name='print_quotation'][1]" position="attributes">-->
+                <!--<attribute name="states">draft_quote,draft,ready_quote</attribute>-->
+            <!--</xpath>-->
             <xpath expr="//button[@name='action_confirm'][2]" position="attributes">
                 <attribute name="attrs">{'invisible': [('state', 'not in', ['ready_quote'])]}</attribute>
             </xpath>
