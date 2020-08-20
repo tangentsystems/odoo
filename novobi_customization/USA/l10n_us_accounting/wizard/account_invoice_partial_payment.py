@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 from odoo import api, fields, models, _
 from odoo.exceptions import Warning
@@ -12,29 +11,28 @@ class PartialPayment(models.TransientModel):
 
     currency_id = fields.Many2one('res.currency', readonly=True)
     amount = fields.Monetary('Amount')
-    invoice_id = fields.Many2one('account.invoice')
+    invoice_id = fields.Many2one('account.move')
     move_line_id = fields.Many2one('account.move.line')
 
     have_same_currency = fields.Boolean(compute='_get_have_same_currency')
 
-    @api.multi
     @api.depends('invoice_id', 'move_line_id')
     def _get_have_same_currency(self):
         for record in self:
-            if has_multi_currency_group(self):
-                record.have_same_currency = False
-            elif record.invoice_id and record.move_line_id:
+            have_same_currency = False
+            if record.invoice_id and record.move_line_id:
                 # TODO: change it to payment's currency instead
                 move_line_currency = record.move_line_id.currency_id if record.move_line_id.currency_id \
                     else self.env.user.company_id.currency_id
                 if record.invoice_id.currency_id.id == move_line_currency.id:
-                    record.have_same_currency = True
+                    have_same_currency = True
+            record.have_same_currency = have_same_currency
 
     @api.model
     def default_get(self, fields):
         res = super(PartialPayment, self).default_get(fields)
 
-        invoice_id = self.env['account.invoice'].browse(self.env.context.get('invoice_id'))
+        invoice_id = self.env['account.move'].browse(self.env.context.get('invoice_id'))
         move_line_id = self.env['account.move.line'].browse(self.env.context.get('credit_aml_id'))
 
         res.update({
@@ -43,7 +41,7 @@ class PartialPayment(models.TransientModel):
             'currency_id': invoice_id.currency_id.id
         })
 
-        amount_due = invoice_id.residual
+        amount_due = invoice_id.amount_residual
 
         if move_line_id.currency_id and move_line_id.currency_id == invoice_id.currency_id:
             payment_amount = abs(move_line_id.amount_residual_currency)
@@ -59,7 +57,7 @@ class PartialPayment(models.TransientModel):
             res['amount'] = payment_amount
         return res
 
-    @api.multi
+
     def apply(self):
         payment_name = 'Credit Note/Payment'
         invoice_name = 'Invoice'
@@ -73,14 +71,14 @@ class PartialPayment(models.TransientModel):
             invoice_name = 'Bill'
 
         if not self.have_same_currency:  # we don't need to validate the amount if they have different currency
-            self.invoice_id.assign_outstanding_credit(self.move_line_id.id)
+            self.invoice_id.js_assign_outstanding_line(self.move_line_id.id)
         else:
             if self.amount <= 0:
                 raise Warning(_('You entered an invalid value. Please make sure you enter a value is greater than 0.'))
             elif self.amount > abs(self.move_line_id.amount_residual):
                 raise Warning(_('You entered a value that exceeds the amount of the %s' % payment_name))
-            elif self.amount > self.invoice_id.residual:
+            elif self.amount > self.invoice_id.amount_residual:
                 raise Warning(_('You entered a value that exceeds the amount due of the %s' % invoice_name))
 
-            self.invoice_id.with_context(partial_amount=self.amount).assign_outstanding_credit(self.move_line_id.id)  # reconcile
+            self.invoice_id.with_context(partial_amount=self.amount).js_assign_outstanding_line(self.move_line_id.id)  # reconcile
         return True

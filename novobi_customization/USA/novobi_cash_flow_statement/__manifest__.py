@@ -10,7 +10,7 @@
     'version': '1.0',
     'license': 'OPL-1',
     'depends': [
-        'account_reports_cash_flow',
+        'account_reports',
     ],
 
     'data': [

@@ -25,7 +25,6 @@ class InheritedResPartner(models.Model):
     ########################################################
     # BUTTON EVENT
     ########################################################
-    @api.multi
     def preference_save(self):
         return {
             'type': 'ir.actions.client',

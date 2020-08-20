@@ -12,10 +12,10 @@ import datetime
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
-    
+
     residual_deposit_amount = fields.Float(string='Residual Deposit Amount', default=0, required=True,
                                            compute='_compute_residual_deposit_amount', store=True)
-    
+
     @api.depends('deposit_total', 'deposit_ids', 'deposit_ids.move_line_ids.amount_residual')
     def _compute_residual_deposit_amount(self):
         orders = self._filter_latest_order()
@@ -25,7 +25,7 @@ class PurchaseOrder(models.Model):
             deposit_move_line_ids = [deposit_id.move_line_ids.filtered(lambda l: l.debit) for deposit_id in deposit_ids]
             order.residual_deposit_amount = sum(line.amount_residual for line in deposit_move_line_ids)
     
-    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.invoice_id.state', 'residual_deposit_amount')
+    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.move_id.state', 'residual_deposit_amount')
     def _get_remaining_so_amount(self):
         """
         Calculate the remaining amount of Purchase Order
@@ -40,14 +40,13 @@ class PurchaseOrder(models.Model):
             order.update({
                 'amount_so_remaining': order.amount_total - total_invoice_amount - order.residual_deposit_amount,
             })
-    
-    @api.multi
+
     def _filter_latest_order(self):
         from_date = datetime.datetime.today() - relativedelta(months=2)
         if len(self) > 1:
             orders = self.filtered(
-                lambda o: o.state == 'sale' and ((o.confirmation_date and o.confirmation_date > from_date) or (
-                        not o.confirmation_date and o.date_order and o.date_order > from_date)))
+                lambda o: o.state == 'purchase' and ((o.date_approve and o.date_approve > from_date) or (
+                        not o.date_approve and o.date_order and o.date_order > from_date)))
         else:
             orders = self
         return orders

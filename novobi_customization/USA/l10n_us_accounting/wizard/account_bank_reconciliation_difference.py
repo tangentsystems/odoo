@@ -1,9 +1,7 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import models, api, _, fields
-from datetime import datetime
 
 
 class BankReconciliationDifference(models.TransientModel):
@@ -12,12 +10,11 @@ class BankReconciliationDifference(models.TransientModel):
 
     company_id = fields.Many2one('res.company', string='Company', required=True,
                                  default=lambda self: self.env.user.company_id)
-    adjustment_date = fields.Date('Adjustment Date', default=datetime.now().date())
+    adjustment_date = fields.Date('Adjustment Date', default=fields.Date.context_today)
     reconciliation_discrepancies_account_id = fields.Many2one('account.account',
         'Reconciliation Discrepancies Account', related='company_id.reconciliation_discrepancies_account_id', readonly=False)
     bank_reconciliation_data_id = fields.Many2one('account.bank.reconciliation.data')
 
-    @api.multi
     def _get_account_side(self, journal_id, difference):
         self.ensure_one()
 
@@ -28,7 +25,6 @@ class BankReconciliationDifference(models.TransientModel):
 
         return debit_account, credit_account
 
-    @api.multi
     def apply(self):
         self.ensure_one()
 

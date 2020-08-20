@@ -16,7 +16,7 @@ class PurchaseOrder(models.Model):
     amount_so_remaining = fields.Monetary(string='Unpaid Amount', default=0,
                                           compute="_get_remaining_so_amount", store=True)
     
-    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.invoice_id.state')
+    @api.depends('amount_total', 'invoice_ids', 'order_line.invoice_lines.move_id.state')
     def _get_remaining_so_amount(self):
         """
         Calculate the remaining amount of Purchase Order
@@ -25,7 +25,7 @@ class PurchaseOrder(models.Model):
         from_date = datetime.datetime.today() - relativedelta(months=2)
         if len(self) > 1:
             orders = self.filtered(
-                lambda o: o.state == 'purchase' and ((o.date_approve and o.date_approve > from_date.date()) or (
+                lambda o: o.state == 'purchase' and ((o.date_approve and o.date_approve > from_date) or (
                         not o.date_approve and o.date_order and o.date_order > from_date)))
         else:
             orders = self

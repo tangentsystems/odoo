@@ -3,7 +3,7 @@
 
 import logging
 
-from slackclient import SlackClient
+from slack import WebClient
 
 from odoo import _
 
@@ -27,7 +27,7 @@ class SlackConnector:
     def __init__(self, token, name):
         """ Virtually private constructor. """
         if SlackConnector.__instance is None:
-            self.slack_client = SlackClient(token)
+            self.slack_client = WebClient(token)
             self.bot_name = name
             print("test")
             self.bot_id = self.get_bot_id()

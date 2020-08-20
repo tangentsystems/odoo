@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 import calendar
 
@@ -18,6 +17,7 @@ BY_MONTH = "month"
 BY_QUARTER = "quarter"
 BY_YEAR = "year"
 BY_YTD = "ytd"
+BY_MTD = 'mtd'
 BY_FISCAL_YEAR = "fiscal_year"
 
 
@@ -86,6 +86,9 @@ def get_start_end_date_value(self, date_value, period_type):
             company_fiscalyear_dates = self.env.user.company_id.compute_fiscalyear_dates(date_value)
             start_date_value = datetime.combine(company_fiscalyear_dates['date_from'], datetime.min.time())
             end_date_value = datetime.combine(company_fiscalyear_dates['date_to'], datetime.min.time())
+        elif period_type == BY_MTD:
+            end_date_value = date_value
+            start_date_value = end_date_value - relativedelta(days=(end_date_value.day - 1))
 
     return start_date_value, end_date_value
 

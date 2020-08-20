@@ -1,7 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
-from odoo import models, api, _
+from odoo import fields, models, api, _
 
 
 class BillableExpenseReport(models.AbstractModel):
@@ -30,17 +27,17 @@ class BillableExpenseReport(models.AbstractModel):
         ]
 
     def group_by_partner_id(self, line_id):
-        domain = [('billable_expenses_ids', '!=', False), ('customer', '=', 1)]
+        domain = [('billable_expenses_ids', '!=', False)]
         if line_id:
             domain.extend([('id', '=', line_id)])
 
         customer_ids = self.env['res.partner'].search(domain)
-        company_ids = self.env.context.get('company_ids', (self.env.user.company_id.id,))
+        company_ids = self.env.companies.ids
 
         partners = {}
         for partner in customer_ids:
-            outstanding_expenses = partner.billable_expenses_ids.filtered(lambda ex: ex.is_outstanding
-                                                                                     and ex.company_id.id in company_ids)
+            outstanding_expenses = partner.billable_expenses_ids.filtered(
+                lambda ex: ex.is_outstanding and ex.company_id.id in company_ids)
             if not outstanding_expenses:
                 continue
 
@@ -80,8 +77,9 @@ class BillableExpenseReport(models.AbstractModel):
                 lines.append({
                     'id': partner_str,
                     'name': partner.name,
-                    'columns': [{'name': v} for v in
-                                [self.format_value(amount, currency=currency)]],
+                    # [self.format_value(amount, currency=currency), '']:
+                    #   use the empty string '' to add the empty column 'On Draft Invoice'
+                    'columns': [{'name': v} for v in [self.format_value(amount, currency=currency), '']],
                     'unfoldable': True,
                     'unfolded': partner_str in options.get('unfolded_lines') or unfold_all,
                     'level': 2,
@@ -102,8 +100,9 @@ class BillableExpenseReport(models.AbstractModel):
                             'id': line.id,
                             'parent_id': partner_str,
                             'name': line.source_document,
+                            'class': 'o_account_reports_level3 no-margin',
                             'columns': [type(v) == dict and v or {'name': v} for v in columns],
-                            'level': 4,
+                            'level': 3,
                             'caret_options': 'billable.expenses' if line.bill_id else 'purchase.expenses',
                         })
                     lines += domain_lines
@@ -114,14 +113,15 @@ class BillableExpenseReport(models.AbstractModel):
                     'name': _('Total'),
                     'level': 0,
                     'class': '',
-                    'columns': [{'name': v} for v in ['', '', '', '', self.format_value(total_amount, currency=currency), '']],
+                    'columns': [{'name': v} for v in
+                                ['', '', '', '', self.format_value(total_amount, currency=currency), '']],
                 })
 
             # Add an empty line after the total to make a space between two currencies
             lines.append({
                 'id': '',
                 'name': '',
-                'class': ' o_account_reports_level0_no_border  ',
+                'class': 'border-0',
                 'unfoldable': False,
                 'level': 0,
                 'columns': [],
@@ -133,7 +133,6 @@ class BillableExpenseReport(models.AbstractModel):
     def _get_report_name(self):
         return _('Pending Billable Expense')
 
-    @api.multi
     def open_bill_expense(self, options, params=None):
         if not params:
             params = {}
@@ -144,7 +143,7 @@ class BillableExpenseReport(models.AbstractModel):
         if expense_id:
             expense = self.env['billable.expenses'].browse(expense_id)
             bill_id = expense.bill_id.id
-            view_id = self.env['ir.model.data'].get_object_reference('account', 'invoice_supplier_form')[1]
+            view_id = self.env['ir.model.data'].get_object_reference('account', 'view_move_form')[1]
             return {
                 'type': 'ir.actions.act_window',
                 'view_type': 'tree',

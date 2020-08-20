@@ -13,7 +13,7 @@
             <link rel="stylesheet" type="text/scss" href="/account_dashboard/static/src/scss/base.scss"/>
 
             <!--kanban view-->
-            <script type="text/javascript" src="/account_dashboard/static/src/js/journal_data_item.js"/>
+            <script type="text/javascript" src="/account_dashboard/static/src/js/account_dashboard.js"/>
 
             <!--widget color setting-->
             <link rel="stylesheet" type="text/scss" href="/account_dashboard/static/src/scss/widget_color_setting.scss"/>

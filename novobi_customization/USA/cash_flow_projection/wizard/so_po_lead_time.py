@@ -18,7 +18,6 @@ class LeadTimeSettings(models.TransientModel):
     po_lead_time = fields.Integer(string='Due date for PO',
                                   default=lambda self: self.env.user.company_id.vendor_payment_lead_time)
     
-    @api.multi
     def set_so_lead_time(self):
         self.ensure_one()
         if self.so_lead_time < 0 or self.po_lead_time < 0:

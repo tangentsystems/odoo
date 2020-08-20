@@ -4,13 +4,14 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
     var core = require('web.core');
     var session = require('web.session');
     var AbstractAction = require('web.AbstractAction');
-    var ControlPanelMixin = require('web.ControlPanelMixin');
     var field_utils = require('web.field_utils');
 
     var QWeb = core.qweb;
     var _t = core._t;
 
-    var cash_flow_projection = AbstractAction.extend(ControlPanelMixin, {
+    var cash_flow_projection = AbstractAction.extend({
+        contentTemplate: 'CFP.template_content',
+        hasControlPanel: true,
         events: {
             "click .o_cash_in_cell": "on_click_cash_in_cell",
             "click .o_period_name_cell": "on_click_period_cell",
@@ -48,7 +49,8 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
         },
         do_show: function () {
             this._super.apply(this, arguments);
-            this.update_control_panel({
+            this.updateControlPanel({
+                title: _t('Cash Flow Projection'),
                 cp_content: {
                     $buttons: this.$buttons,
                     $searchview_buttons: this.$searchview_buttons,
@@ -59,7 +61,7 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
             });
         },
         re_renderElement: function () {
-            this.$el.html(this.html);
+            // this.$el.html(this.html);
             this.on_cash_in_change();
         },
         render: function () {
@@ -78,7 +80,8 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
                 kwargs: {context: session.user_context},
             })
                 .then(function (result) {
-                    self.html = result.html;
+                     self.html_content = result.html;
+                    $('.o_cfp_template_content').html(self.html_content);
                     self.report_context = result.report_context;
                     self.re_renderElement();
                 });
@@ -313,7 +316,8 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
                 self.open_setting_number_of_period(event);
             });
 
-            this.update_control_panel({
+            this.updateControlPanel({
+                title: _t('Cash Flow Projection'),
                 cp_content: {
                     $buttons: this.$buttons,
                     $searchview_buttons: this.$searchview_buttons,
@@ -358,7 +362,7 @@ odoo.define('cash_flow_projection.cash_flow_projection_report', function (requir
                     });
             }
             return this.reload_old_value()
-                .done(function () {
+                .then(function () {
                     self.get_html(self.options);
                 });
         },

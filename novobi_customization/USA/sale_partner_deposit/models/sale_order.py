@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 
 
@@ -15,27 +14,23 @@ class SalesOrder(models.Model):
     @api.depends('amount_total', 'deposit_ids', 'deposit_ids.state')
     def _get_deposit_total(self):
         for order in self:
-            deposit_ids = order.sudo().deposit_ids
-            deposit_total = sum(deposit.amount for deposit in deposit_ids)
+            deposit_total = sum(deposit.amount for deposit in order.deposit_ids)
 
             order.update({
                 'deposit_total': deposit_total,
-                'deposit_count': len(deposit_ids),
+                'deposit_count': len(order.deposit_ids),
                 'remaining_total': order.amount_total - deposit_total,
             })
 
-    @api.multi
     def action_view_deposit(self):
         action = self.env.ref('account_partner_deposit.action_account_payment_customer_deposit').read()[0]
         action['domain'] = [('id', 'in', self.deposit_ids.ids)]
         return action
 
-    @api.multi
-    def action_invoice_create(self, grouped=False, final=False):
-        invoice_ids = super(SalesOrder, self).action_invoice_create(grouped, final)
+    def _create_invoices(self, grouped=False, final=False):
+        invoices = super(SalesOrder, self)._create_invoices(grouped, final)
 
         if self.env.context.get('validate_invoice', False):
-            invoices = self.env['account.invoice'].browse(invoice_ids)
-            invoices.action_invoice_open()
+            invoices.action_post()
 
-        return invoice_ids
+        return invoices

@@ -30,7 +30,7 @@ class ActionSession(models.Model):
         return token
 
     token = fields.Char('Alert Category', require=True, default=_token_default_get)
-    sub_domain = fields.Selection('Sub domain', require=True)
+    sub_domain = fields.Char(string='Sub domain')
     expiration = fields.Datetime(copy=False, groups="base.group_erp_manager", default=False)
     action_valid = fields.Boolean(compute='_compute_action_valid',
                                   compute_sudo=True,
@@ -45,7 +45,6 @@ class ActionSession(models.Model):
     ########################################################
     # COMPUTED FUNCTION
     ########################################################
-    @api.multi
     @api.depends('token', 'expiration')
     def _compute_action_valid(self):
         dt = now()
@@ -53,14 +52,12 @@ class ActionSession(models.Model):
             action.action_valid = bool(action.token) and \
                                   (not action.expiration or dt <= action.expiration)
 
-    @api.multi
     def _compute_action_url(self):
         """ proxy for function field towards actual implementation """
         result = self.sudo()._get_url_for_action()
         for action in self:
             action.url = result.get(action.id, False)
 
-    @api.multi
     def action_prepare(self, expiration=False):
         """ Generate a new token for the partners with the given validity, if necessary
 
@@ -131,7 +128,6 @@ class ActionSession(models.Model):
             _logger.warning("Can not find exactly record with token %s" % token)
         return corresponding_obj
 
-    @api.multi
     def _get_url_for_action(self):
         """ generate a signup url for the given partner ids and action, possibly overriding
             the url state components (menu_id, id, view_type) """

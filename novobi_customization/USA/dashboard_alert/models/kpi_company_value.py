@@ -30,12 +30,10 @@ class KPICompanyValue(models.Model):
         self.update_alert_info(seq.kpi_id.id, seq.company_id.id, seq.value)
         return seq
 
-    @api.multi
     def unlink(self):
         # TO DO
         return super(KPICompanyValue, self).unlink()
 
-    @api.multi
     def write(self, values):
         res = super(KPICompanyValue, self).write(values)
         for kpi_com_val in self:

@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import models, api
 
@@ -8,7 +7,6 @@ from odoo import models, api
 class BillableExpenseReport(models.AbstractModel):
     _inherit = 'billable.expense.report'
 
-    @api.multi
     def open_purchase_expense(self, options, params=None):
         if not params:
             params = {}
@@ -23,7 +21,6 @@ class BillableExpenseReport(models.AbstractModel):
             return {
                 'type': 'ir.actions.act_window',
                 'view_type': 'tree',
-                'view_mode': 'form',
                 'views': [(view_id, 'form')],
                 'res_model': document,
                 'view_id': view_id,

@@ -39,7 +39,7 @@
                                         <t t-if="line.type == 'out_invoice'">
                                             <span>
                                                 Less
-                                                <a class="open-payment-usa o_form_uri"
+                                                <a class="open-payment-usa o_form_uri text-primary"
                                                    t-att-payment-id="account_payment_id" t-att-invoice-id="invoice_id"
                                                    t-att-move-id="move_id" style="margin-bottom:5px;" title="View Transaction">
                                                     <t t-if="line.is_write_off">
@@ -57,7 +57,7 @@
                                         <t t-elif="line.type == 'out_refund'">
                                             <span>
                                                 Less Credit to
-                                                <a class="open-payment-usa o_form_uri"
+                                                <a class="open-payment-usa o_form_uri text-primary"
                                                    t-att-payment-id="account_payment_id" t-att-invoice-id="invoice_id"
                                                    t-att-move-id="move_id" style="margin-bottom:5px;" title="View Transaction">
                                                     <t t-if="line.journal_name == 'Customer Invoices'">
@@ -72,7 +72,7 @@
                                         <t t-elif="line.type == 'in_invoice'">
                                             <span>
                                                 Less
-                                                <a class="open-payment-usa o_form_uri"
+                                                <a class="open-payment-usa o_form_uri text-primary"
                                                    t-att-payment-id="account_payment_id" t-att-invoice-id="invoice_id"
                                                    t-att-move-id="move_id" style="margin-bottom:5px;" title="View Transaction">
                                                     <t t-if="line.journal_name == 'Vendor Bills'">
@@ -87,7 +87,7 @@
                                         <t t-elif="line.type == 'in_refund'">
                                             <span>
                                                 Less Credit to
-                                                <a class="open-payment-usa o_form_uri"
+                                                <a class="open-payment-usa o_form_uri text-primary"
                                                    t-att-payment-id="account_payment_id" t-att-invoice-id="invoice_id"
                                                    t-att-move-id="move_id" style="margin-bottom:5px;" title="View Transaction">
                                                     <t t-if="line.journal_name == 'Vendor Bills'">
@@ -132,7 +132,7 @@
                                             <t t-esc="line.currency"/>
                                         </t>
                                     </span>
-                                    <i class="fa fa-times remove-payment-usa" t-att-payment-id="payment_id" title="Unapply"/>
+                                    <i class="fa fa-times remove-payment-usa" t-att-payment-id="payment_id" t-att-partial-id="line.partial_id" title="Unapply"/>
                                 </div>
                             </t>
                         </td>

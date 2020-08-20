@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 {
     'name': 'Accounting Budget Advanced',
@@ -8,7 +7,6 @@
     'website': 'http://www.odoo-accounting.com',
     'category': 'Accounting',
     'version': '1.0',
-    'license': 'OPL-1',
     'depends': [
         'account_accountant',
         'l10n_generic_coa',
