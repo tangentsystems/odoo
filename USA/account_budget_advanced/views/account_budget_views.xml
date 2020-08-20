@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--Budget vs Actuals-->
     <menuitem id="account_budget.menu_act_crossovered_budget_view"

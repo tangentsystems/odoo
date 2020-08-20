@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from ..models.usa_journal import BANK
 from odoo import models, api, _, fields

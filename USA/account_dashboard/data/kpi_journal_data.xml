@@ -12,6 +12,7 @@
             <field name="unit">percentage</field>
             <field name="color">#F06050</field>
             <field name="default_kpi" eval="True"/>
+            <field name="green_on_positive">True</field>
             <field name="code_compute">
 gross_profit = model.get_group_in_period('Gross Profit', 'Profit and Loss', date_from, date_to, lines_dict).balance
 operating_income = model.get_group_in_period('Operating Income', 'Profit and Loss', date_from, date_to, lines_dict).balance
@@ -28,6 +29,7 @@ result = 0 if operating_income == 0 else 100 * (gross_profit/ operating_income)
             <field name="icon_kpi" type="base64" file="account_dashboard/static/src/img/net_profit_loss.png"/>
             <field name="default_kpi" eval="True"/>
             <field name="color">#F4A460</field>
+            <field name="green_on_positive">True</field>
             <field name="code_compute">
 net_profit_loss = model.get_group_in_period('NET PROFIT/LOSS', 'Profit and Loss', date_from, date_to, lines_dict).balance
 result = net_profit_loss
@@ -43,6 +45,7 @@ result = net_profit_loss
             <field name="icon_kpi" type="base64" file="account_dashboard/static/src/img/total_income.png"/>
             <field name="default_kpi" eval="True"/>
             <field name="color">#F7CD1F</field>
+            <field name="green_on_positive">True</field>
             <field name="code_compute">
 other_income = model.get_group_in_period('Other Income', 'Profit and Loss', date_from, date_to, lines_dict).balance
 operating_income = model.get_group_in_period('Operating Income', 'Profit and Loss', date_from, date_to, lines_dict).balance
@@ -59,6 +62,7 @@ result = other_income + operating_income
             <field name="icon_kpi" type="base64" file="account_dashboard/static/src/img/expenses.png"/>
             <field name="default_kpi" eval="True"/>
             <field name="color">#6CC1ED</field>
+            <field name="green_on_positive">False</field>
             <field name="code_compute">
 other_income = model.get_group_in_period('Other Income', 'Profit and Loss', date_from, date_to, lines_dict).balance
 operating_income = model.get_group_in_period('Operating Income', 'Profit and Loss', date_from, date_to, lines_dict).balance
@@ -77,6 +81,7 @@ result = total_income - net_profit_loss
             <field name="icon_kpi" type="base64" file="account_dashboard/static/src/img/cash_and_equivalent.png"/>
             <field name="default_kpi" eval="True"/>
             <field name="color">#814968</field>
+            <field name="green_on_positive">True</field>
             <field name="code_compute">
 bank_and_cash = model.get_group_in_period('Bank and Cash Accounts', 'Balance Sheet', date_from, date_to, lines_dict).balance
 result = bank_and_cash
@@ -92,6 +97,7 @@ result = bank_and_cash
             <field name="icon_kpi" type="base64" file="account_dashboard/static/src/img/receivables.png"/>
             <field name="default_kpi" eval="True"/>
             <field name="color">#EB7E7F</field>
+            <field name="green_on_positive">True</field>
             <field name="code_compute">
 receivables = model.get_group_in_period('Receivables', 'Balance Sheet', date_from, date_to, lines_dict).balance
 result = receivables

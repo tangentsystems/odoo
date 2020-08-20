@@ -1,17 +1,13 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
-from odoo import api, fields, models
+from odoo import fields, models, api
 from odoo.tools.misc import formatLang
 
 
 class BillableExpenses(models.Model):
     _name = 'billable.expenses'
     _description = 'Billable Expenses'
-    _rec_name = 'description'
 
-    bill_id = fields.Many2one('account.invoice')
-    bill_line_id = fields.Many2one('account.invoice.line')  # expense created from a bill line
+    bill_id = fields.Many2one('account.move')
+    bill_line_id = fields.Many2one('account.move.line')     # expense created from a bill line
     description = fields.Text('Description')
     bill_date = fields.Date('Date')
 
@@ -24,7 +20,7 @@ class BillableExpenses(models.Model):
     company_id = fields.Many2one('res.company', compute='_compute_company_id', store=True)
     customer_id = fields.Many2one('res.partner', 'Customer')
 
-    invoice_line_id = fields.Many2one('account.invoice.line')  # expense added to an invoice line
+    invoice_line_id = fields.Many2one('account.move.line')   # expense added to an invoice line
     is_outstanding = fields.Boolean('Outstanding', compute='_get_outstanding_state', store=True)
 
     # Express in Invoice currency
@@ -38,35 +34,56 @@ class BillableExpenses(models.Model):
     @api.depends('amount', 'amount_markup', 'amount_markup_percentage')
     def _compute_amount_total(self):
         for record in self:
-            record.amount_total = record.amount * (record.amount_markup_percentage + 100)/100 + record.amount_markup
+            record.amount_total = record.amount * (record.amount_markup_percentage + 100) / 100 + record.amount_markup
 
-    @api.depends('invoice_line_id', 'invoice_line_id.invoice_id.state')
+    @api.depends('invoice_line_id', 'invoice_line_id.move_id.state')
     def _get_outstanding_state(self):
         for record in self:
-            if not record.invoice_line_id or (record.invoice_line_id and
-                                              record.invoice_line_id.invoice_id.state == 'draft'):
-                record.is_outstanding = True
-            else:
-                record.is_outstanding = False
+            line_id = record.invoice_line_id
+            record.is_outstanding = not line_id or (line_id and line_id.move_id.state == 'draft')
 
     @api.depends('bill_id')
     def _compute_company_id(self):
         for record in self:
             bill = record.bill_id
-            if bill:
-                record.source_document = bill.number
-                record.supplier_id = bill.partner_id
-                record.currency_id = bill.currency_id
-                record.company_id = bill.company_id
+            values = (bill.name, bill.partner_id, bill.currency_id, bill.company_id) if bill else (False, False, False, False)
+
+            record.source_document = values[0]
+            record.supplier_id = values[1]
+            record.currency_id = values[2]
+            record.company_id = values[3]
 
     @api.depends('amount_total', 'currency_id', 'invoice_currency_id')
     def _get_amount_currency(self):
         for record in self:
             if record.invoice_currency_id:
-                record.amount_currency = record.currency_id._convert(record.amount_total, record.invoice_currency_id,
-                                                                     record.company_id, fields.Date.today())
+                record.amount_currency = record.currency_id._convert(
+                    record.amount_total, record.invoice_currency_id, record.company_id, fields.Date.today())
             else:
                 record.amount_currency = record.amount_total
+
+    def _get_expense_account(self, rec_ids):
+        """
+        If merge multi line into 1 invoice line, get expense account from product/product template.
+        :param rec_ids: recordset of vendor bills or purchase orders
+        :return: account_id (int)
+        """
+        product_tmpl_ids = rec_ids.mapped('product_id').mapped('product_tmpl_id')
+        account = product_tmpl_ids[0]._get_product_accounts()['expense'] if product_tmpl_ids else False
+
+        return account and account.id
+
+    def get_expense_account(self):
+        """
+        By default, get account from account_id of the first vendor bill/purchase order line.
+        Used to call in from_expense_to_invoice in account_move.
+        :return: account_id (int)
+        """
+        bill_line_ids = self.mapped('bill_line_id')
+        account_ids = bill_line_ids.mapped('account_id')
+        account = account_ids and account_ids[0]
+
+        return self._get_expense_account(bill_line_ids) or account.id
 
     def _get_log_msg(self, vals):
         current_customer = self.customer_id
@@ -105,7 +122,6 @@ class BillableExpenses(models.Model):
             msg = record._get_log_msg(vals)
             record.bill_id.message_post(body=msg, subtype='account_billable_expense.mt_billable_expense')
 
-    @api.multi
     def write(self, vals):
         if 'customer_id' in vals:
             vals['invoice_line_id'] = False  # reassign expense for another customer
@@ -113,6 +129,4 @@ class BillableExpenses(models.Model):
         if 'customer_id' in vals or 'amount_total' in vals:
             self._log_message_expense(vals)
 
-        res = super(BillableExpenses, self).write(vals)
-
-        return res
+        return super(BillableExpenses, self).write(vals)

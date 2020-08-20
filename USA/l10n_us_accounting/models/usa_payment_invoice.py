@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
@@ -19,9 +18,9 @@ class USAPaymentInvoice(models.Model):
     has_multi_currency_group = fields.Boolean(compute='_get_has_multi_currency_group')
 
     account_move_line_id = fields.Many2one('account.move.line')
-    invoice_id = fields.Many2one('account.invoice', related='account_move_line_id.invoice_id')
+    invoice_id = fields.Many2one('account.move', related='account_move_line_id.move_id', store=True)
 
-    date_invoice = fields.Date('Invoice Date', related='invoice_id.date_invoice')
+    date_invoice = fields.Date('Invoice Date', compute='_get_amount_residual', store=True)
     date_due = fields.Date('Due Date', compute='_get_amount_residual', store=True)
 
     amount_total = fields.Monetary('Total', compute='_get_amount_residual', store=True)
@@ -42,24 +41,35 @@ class USAPaymentInvoice(models.Model):
 
     @api.depends('account_move_line_id', 'account_move_line_id.balance',
                  'account_move_line_id.amount_residual', 'account_move_line_id.date_maturity',
-                 'invoice_id', 'invoice_id.date_due')
+                 'invoice_id', 'invoice_id.date', 'invoice_id.invoice_date', 'invoice_id.invoice_date_due')
     def _get_amount_residual(self):
         for record in self:
+            date_invoice = date_due = amount_total = residual = False
+            invoice_id = record.invoice_id
             aml_id = record.account_move_line_id
+
             if aml_id:
-                record.date_due = aml_id.date_maturity or record.invoice_id and record.invoice_id.date_due
+                # Journal entry (invoice_id.type = 'entry') won't have value of `invoice_date` and `invoice_date_due`
+                # So get value of `date` for `date_invoice` and `date_due` instead.
+                date_invoice = invoice_id and (invoice_id.invoice_date or invoice_id.date)
+                date_due = aml_id.date_maturity or invoice_id and invoice_id.invoice_date_due or invoice_id and invoice_id.date
+
                 if aml_id.currency_id:
-                    record.amount_total = abs(aml_id.amount_currency)
-                    record.residual = abs(aml_id.amount_residual_currency)
+                    amount_total = abs(aml_id.amount_currency)
+                    residual = abs(aml_id.amount_residual_currency)
                 else:
-                    record.amount_total = abs(aml_id.balance)
-                    record.residual = abs(aml_id.amount_residual)
+                    amount_total = abs(aml_id.balance)
+                    residual = abs(aml_id.amount_residual)
+
+            record.date_invoice = date_invoice
+            record.date_due = date_due
+            record.amount_total = amount_total
+            record.residual = residual
 
     @api.depends('account_move_line_id')
     def _get_has_multi_currency_group(self):
         for record in self:
-            if has_multi_currency_group(self):
-                record.has_multi_currency_group = True
+            record.has_multi_currency_group = has_multi_currency_group(self)
 
     @api.onchange('account_move_line_id')
     def _onchange_account_move(self):
@@ -69,7 +79,7 @@ class USAPaymentInvoice(models.Model):
     @api.onchange('payment')
     def _onchange_payment_amount(self):
         if self.payment <= 0 and self.account_move_line_id:
-            raise ValidationError(_('Please enter an amount is greater than 0'))
+            raise ValidationError(_('Please enter an amount greater than 0'))
 
         if self.payment > self.residual:
             self.payment = self.residual

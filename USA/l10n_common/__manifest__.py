@@ -1,5 +1,4 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 
 {
     'name': 'l10n_common',
@@ -8,7 +7,6 @@
     'website': 'https://novobi.com',
     'category': 'Web',
     'version': '1.0',
-    'license': 'OPL-1',
     'depends': [
         'web',
         'base',

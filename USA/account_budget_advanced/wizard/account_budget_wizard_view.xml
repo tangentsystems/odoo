@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!--Default Wizard-->
     <record id="account_budget_wizard_form_view" model="ir.ui.view">
@@ -116,7 +115,6 @@
     <record id="action_account_budget_wizard" model="ir.actions.act_window">
         <field name="name">Budgets</field>
         <field name="res_model">account.budget.wizard</field>
-        <field name="view_type">form</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account_budget_wizard_form_view"/>
         <field name="target">new</field>

@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
 
@@ -21,8 +20,8 @@ class PersonalizedKPIInfo(models.Model):
 
     def _get_default_image(self, module, path, name):
         image_path = modules.get_module_resource(module, path, name)
-        return tools.image_resize_image_big(base64.b64encode(open(image_path, 'rb').read()))
-
+        # return tools.image_resize_image_big(base64.b64encode(open(image_path, 'rb').read()))
+        return tools.image_process(base64.b64encode(open(image_path, 'rb').read()), size=(1024, 1024))
     name = fields.Char('Name', related='kpi_id.name', readonly=True, store=False)
     selected = fields.Boolean('KPI will appear', default=False)
     order = fields.Integer('Order position', default=-1)
@@ -31,16 +30,10 @@ class PersonalizedKPIInfo(models.Model):
     unit = fields.Selection(related='kpi_id.unit', readonly=True, store=False)
     icon_kpi = fields.Binary('Icon KPI', attachment=True, default=_get_default_icon)
     kpi_id = fields.Many2one('kpi.journal', 'KPI ID')
-    icon_inc = fields.Binary('Icon Increase', attachment=True, default=lambda self:
-        self._get_default_image('account_dashboard', 'static/src/img', 'up.png'))
-    icon_dec = fields.Binary('Icon Decrease', attachment=True, default=lambda self:
-        self._get_default_image('account_dashboard', 'static/src/img', 'down.png'))
-    icon_noc = fields.Binary('Icon No Change', attachment=True, default=lambda self:
-        self._get_default_image('account_dashboard', 'static/src/img', 'no_change.png'))
     company_id = fields.Many2one('res.company', string='Company', required=True, index=True,
-                                 default=lambda self: self.env.user.company_id,
-                                 help="Company related to this personalized KPI")
+                                 default=lambda self: self.env.company, help="Company related to this personalized KPI")
     user_id = fields.Many2one('res.users', string='KPI owner', default=lambda self: self.env.user)
+    green_on_positive = fields.Boolean(string='Is growth good when positive?', default=True)
 
     @api.model
     def kpi_header_render(self, new_user=True):
@@ -57,7 +50,7 @@ class PersonalizedKPIInfo(models.Model):
             # Generate kpi for new user have use dashboard at the first time
             self.generate_kpi_for_new_user(uid)
 
-        kpis_info = self.search([('user_id', '=', uid), ('company_id', '=', self.env.user.company_id.id)])
+        kpis_info = self.search([('user_id', '=', uid), ('company_id', '=', self.env.company.id)])
         kpi_json = self.env['kpi.journal'].kpi_render(kpis_info)
         return kpi_json
 
@@ -70,9 +63,8 @@ class PersonalizedKPIInfo(models.Model):
 
         :return:
         """
-
         if not company_id:
-            company_id = self.env.user.company_id.id
+            company_id = self.env.company.id
         available_kpi = self.search([('user_id', '=', uid), ('company_id', '=', company_id)])
         kpi_default = self.env['kpi.journal'].search([('default_kpi', '=', True)])
 
@@ -89,9 +81,7 @@ class PersonalizedKPIInfo(models.Model):
                     'color':        kpi.color,
                     'icon_kpi':     kpi.icon_kpi,
                     'kpi_id':       kpi.id,
-                    'icon_inc':     kpi.icon_inc,
-                    'icon_dec':     kpi.icon_dec,
-                    'icon_noc':     kpi.icon_noc,
+                    'green_on_positive': kpi.green_on_positive,
                     'user_id':      uid,
                     'company_id':   company_id
                 })
@@ -116,15 +106,13 @@ class PersonalizedKPIInfo(models.Model):
         # Get list name of kpi from the list have filter above
         kpi_selected_update = list(map(lambda x: x['name_kpi'], data_kpi_selected_update))
 
-        user = self.env.user
-
         # Search all the kpis were selected before and would be not selected
         # after change setting
         kpi_unselected = self.search([
             ('kpi_id.name', 'not in', kpi_selected_update),
             ('selected', '=', True),
-            ('company_id', '=', user.company_id.id),
-            ('user_id', '=', user.id)
+            ('company_id', '=', self.env.company.id),
+            ('user_id', '=', self.env.user.id)
         ])
 
         # Unselected all kpi above
@@ -137,8 +125,8 @@ class PersonalizedKPIInfo(models.Model):
         # Update all the kpi have been selected to database and update the order of there also
         kpi_selected = self.search([
             ('kpi_id.name', 'in', kpi_selected_update),
-            ('company_id', '=', user.company_id.id),
-            ('user_id', '=', user.id)
+            ('company_id', '=', self.env.company.id),
+            ('user_id', '=', self.env.user.id)
         ], order='order ASC')
         kpi_selected_old = kpi_selected.filtered(lambda kpi: kpi.selected is True)
         kpi_selected_new = kpi_selected.filtered(lambda kpi: kpi.selected is False)
@@ -154,11 +142,10 @@ class PersonalizedKPIInfo(models.Model):
 
     @api.model
     def update_kpi_order(self, list_kpis_name):
-        user = self.env.user
         kpis_selected = self.search([
             ('kpi_id.name', 'in', list_kpis_name),
-            ('company_id', '=', user.company_id.id),
-            ('user_id', '=', user.id)])
+            ('company_id', '=', self.env.company.id),
+            ('user_id', '=', self.env.user.id)])
         for kpi in kpis_selected:
             kpi.write({
                 'order': list_kpis_name.index(kpi.kpi_id.name)

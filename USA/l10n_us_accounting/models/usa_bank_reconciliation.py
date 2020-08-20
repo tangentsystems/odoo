@@ -1,12 +1,10 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import models, api, _, fields
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from datetime import datetime
 from odoo.exceptions import UserError
-
 
 
 class USABankReconciliation(models.AbstractModel):
@@ -28,120 +26,90 @@ class USABankReconciliation(models.AbstractModel):
             {'name': _('Payee')},
             {'name': _('Memo')},
             {'name': _('Check Number')},
-            {'name': _('Payment')},
-            {'name': _('Deposit')},
+            {'name': _('Payment'), 'class': 'number'},
+            {'name': _('Deposit'), 'class': 'number'},
             {'name': _('Reconcile')},
         ]
 
     def _get_aml(self, bank_reconciliation_data_id):
+        """
+        Get all account.move.line except in batch payments to show in Reconciliation screen.
+        :param bank_reconciliation_data_id:
+        :return: aml_ids
+        """
         account_ids = [bank_reconciliation_data_id.journal_id.default_debit_account_id.id,
                        bank_reconciliation_data_id.journal_id.default_credit_account_id.id]
 
         # bank_reconciled is our new field.
-        # an account move line is considered reconciled if it either has Statement Line or checked bank_reconciled
-        aml_ids = self.env['account.move.line'].search([('account_id', 'in', account_ids),
-                                                ('date', '<=', bank_reconciliation_data_id.statement_ending_date),
-                                                ('statement_line_id', '=', False),
-                                                ('bank_reconciled', '=', False),
-                                                ('is_fund_line', '=', False),
-                                                ('move_id.state', '=', 'posted'),
-                                                '|', ('payment_id', '=', False),
-                                                '&', ('payment_id', '!=', False), ('payment_id.batch_payment_id', '=', False)])
-        #('payment_id.batch_deposit_id', '=', False)
-        #.filtered(lambda x: not x.payment_id or (x.payment_id and not x.payment_id.batch_deposit_id))
+        # an account move line is considered reconciled if bank_reconciled is checked.
+        aml_ids = self.env['account.move.line'].search([
+            ('account_id', 'in', account_ids),
+            ('date', '<=', bank_reconciliation_data_id.statement_ending_date),
+            ('bank_reconciled', '=', False),
+            ('is_fund_line', '=', False),
+            ('move_id.state', '=', 'posted'),
+            '|', ('payment_id', '=', False), '&', ('payment_id', '!=', False), ('payment_id.batch_payment_id', '=', False)
+        ])
         return aml_ids
 
-    def _get_batch_deposit(self, bank_reconciliation_data_id):
+    def _get_batch_payment_aml(self, bank_reconciliation_data_id):
+        """
+        Get all account.move.line in batch payments, include payments and adjustments.
+        :param bank_reconciliation_data_id:
+        :return: aml_ids
+        """
         journal_id = bank_reconciliation_data_id.journal_id
 
-        batch_ids = self.env['account.batch.payment'].search([('journal_id', '=', journal_id.id),
-                                                ('state', '!=', 'reconciled'),
-                                                ('date', '<=', bank_reconciliation_data_id.statement_ending_date)])
+        batch_ids = self.env['account.batch.payment'].search([
+            ('journal_id', '=', journal_id.id),
+            ('state', '!=', 'reconciled'),
+            ('date', '<=', bank_reconciliation_data_id.statement_ending_date)
+        ])
 
-        return batch_ids
-
-    def _mark_applied_transaction(self, bank_reconciliation_data_id, aml_ids, batch_ids):
-        """
-        Mark applied transactions by default
-        """
-        # check newly applied transactions
-        matched_transaction_ids = self.env['account.bank.statement.line'].search([
-            ('status', '=', 'confirm'),
-            ('id', 'not in', bank_reconciliation_data_id.applied_bank_statement_line_ids.ids),
-            '|', ('applied_aml_ids', 'in', aml_ids.ids), ('applied_batch_ids', 'in', batch_ids.ids)])
-        if matched_transaction_ids:
-            matched_transaction_ids.mapped('applied_aml_ids').write({'temporary_reconciled': True})
-            matched_transaction_ids.mapped('applied_batch_ids').write({'temporary_reconciled': True})
-            bank_reconciliation_data_id.write({'applied_bank_statement_line_ids': [(4, matched.id) for matched
-                                                                                   in matched_transaction_ids]})
+        return batch_ids.get_batch_payment_aml().filtered(lambda r: not r.bank_reconciled)
 
     @api.model
     def _get_lines(self, options, line_id=None):
         lines = []
         bank_reconciliation_data_id = self._get_bank_reconciliation_data_id()
 
-        aml_ids = self._get_aml(bank_reconciliation_data_id)
-        batch_ids = self._get_batch_deposit(bank_reconciliation_data_id)
-        self._mark_applied_transaction(bank_reconciliation_data_id, aml_ids, batch_ids)
-        bank_reconciliation_data_id.write({'aml_ids': [(6, 0, aml_ids.ids)],
-                                           'batch_ids': [(6, 0, batch_ids.ids)]})
+        aml_ids = self._get_aml(bank_reconciliation_data_id) | self._get_batch_payment_aml(bank_reconciliation_data_id)
+        bank_reconciliation_data_id.write({'aml_ids': [(6, 0, aml_ids.ids)]})
 
         # Filter by Start Date:
         if bank_reconciliation_data_id.start_date:
-            aml_ids = aml_ids.filtered(lambda x: x.date >= bank_reconciliation_data_id.start_date)
-            batch_ids = batch_ids.filtered(lambda x: x.date >= bank_reconciliation_data_id.start_date)
+            hidden_transactions = aml_ids.filtered(lambda x: x.date < bank_reconciliation_data_id.start_date)
+            hidden_transactions.write({'temporary_reconciled': False})
+            aml_ids = aml_ids - hidden_transactions
 
         for line in aml_ids:
-            partner_name = line.partner_id.name if line.partner_id else ''
             check_number = line.payment_id.check_number if line.payment_id and line.payment_id.check_number else ''
             columns = [self._format_date(line.date),
-                       {'name': partner_name[:20],
-                        'title': partner_name,
-                        },
-                       {'name': line.name[:30] if line.name else '',
-                        'title': line.name
-                        },
+                       line.partner_id.name if line.partner_id else '',
+                       line.name,
                        check_number,
                        self.format_value(line.credit) if line.credit > 0 else '',
                        self.format_value(line.debit) if line.debit > 0 else '',
                        {'name': False, 'blocked': line.temporary_reconciled,
                         'debit': line.debit,
                         'credit': line.credit}]
-            caret_type = 'account.move'
-            if line.invoice_id:
-                caret_type = 'account.invoice.in' if line.invoice_id.type in (
-                'in_refund', 'in_invoice') else 'account.invoice.out'
-            elif line.payment_id:
-                caret_type = 'account.payment'
-            lines.append({
-                        'id': line.id,
-                        'name': line.move_id.name,
-                        'caret_options': caret_type,
-                        'model': 'account.move.line',
-                        'columns': [type(v) == dict and v or {'name': v} for v in columns],
-                        'level': 1,
-                    })
 
-        # Batch deposit is in Deposit side.
-        for line in batch_ids:
-            columns = [self._format_date(line.date),
-                       '',
-                       {'name': line.name[:30] if line.name else '',
-                        'title': line.name
-                        },
-                       '', '',
-                       self.format_value(line.amount),
-                       {'name': False, 'blocked': line.temporary_reconciled,
-                        'debit': line.amount,
-                        'credit': 0}]
+            caret_type = 'account.move'
+            if line.payment_id:
+                caret_type = 'account.payment'
+            elif line.move_id:
+                if line.move_id.type in ('in_refund', 'in_invoice', 'in_receipt'):
+                    caret_type = 'account.invoice.in'
+                elif line.move_id.type in ('out_refund', 'out_invoice', 'out_receipt'):
+                    caret_type = 'account.invoice.out'
             lines.append({
-                        'id': line.id,
-                        'name': line.name,
-                        'caret_options': 'account.batch.payment',
-                        'model': 'account.batch.payment',
-                        'columns': [type(v) == dict and v or {'name': v} for v in columns],
-                        'level': 1,
-                    })
+                'id': line.id,
+                'name': line.move_id.name,
+                'caret_options': caret_type,
+                'model': 'account.move.line',
+                'columns': [type(v) == dict and v or {'name': v} for v in columns],
+                'level': 1,
+            })
 
         if not lines:
             lines.append({
@@ -162,7 +130,6 @@ class USABankReconciliation(models.AbstractModel):
     def _get_reports_buttons(self):
         return []
 
-    @api.multi
     def get_html(self, options, line_id=None, additional_context=None):
         bank_reconciliation_data_id = self._get_bank_reconciliation_data_id()
 
@@ -211,7 +178,6 @@ class USABankReconciliation(models.AbstractModel):
 
         return bank_reconciliation_data_id
 
-    @api.multi
     def open_batch_deposit_document(self, options, params=None):
         if not params:
             params = {}

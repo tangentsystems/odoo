@@ -1,8 +1,6 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
+# -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.tools.misc import formatLang, format_date
-
 
 
 class AccountFollowupDepositReport(models.AbstractModel):
@@ -44,14 +42,14 @@ class AccountFollowupDepositReport(models.AbstractModel):
 
                 lines.append({
                     'id': line.id,
-                    'view_invoice_id': self.env['ir.model.data'].get_object_reference('account', 'invoice_form')[1],
+                    'view_invoice_id': self.env['ir.model.data'].get_object_reference('account', 'view_move_form')[1],
                     'account_move': line.move_id,
                     'deposit_line': True,
                     'name': line.move_id.name,
                     'caret_options': 'followup',
                     'move_id': line.move_id.id,
                     'unfoldable': False,
-                    'has_invoice': bool(line.invoice_id),
+                    'has_invoice': bool(line.move_id),
                     'columns': [type(v) == dict and v or {'name': v} for v in columns],
                 })
 
@@ -61,8 +59,9 @@ class AccountFollowupDepositReport(models.AbstractModel):
                 'name': '',
                 'deposit_line': True,
                 'class': 'total',
+                'style': 'border-top-style: double',
                 'unfoldable': False,
-                'level': 0,
+                'level': 3,
                 'columns': [{'name': v} for v in [''] * (1 if self.env.context.get('print_mode') else 2) + [
                     partner.total_due >= 0 and _('Total Deposit') or '', total_due]],
             })

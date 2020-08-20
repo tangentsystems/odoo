@@ -1,6 +1,5 @@
-# Copyright 2020 Novobi
-# See LICENSE file for full copyright and licensing details.
-
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, models, fields, _
 
@@ -73,7 +72,6 @@ class ResCompany(models.Model):
                 'show_on_dashboard': False,
             })
 
-    @api.multi
     def check_create_property(self, field_name, account):
         PropertyObj = self.env['ir.property']
         ModelFields = self.env['ir.model.fields']

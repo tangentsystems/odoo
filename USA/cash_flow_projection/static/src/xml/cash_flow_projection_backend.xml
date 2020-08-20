@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <templates>
+
+    <t t-name="CFP.template_content">
+        <div class="o_cfp_template_content"></div>
+    </t>
+
     <t t-name="CFP.Buttons">
         <button type="button" class="btn btn-primary o_btn_export">Export (XLS)</button>
     </t>

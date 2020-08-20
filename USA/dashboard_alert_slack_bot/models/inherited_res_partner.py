@@ -39,7 +39,6 @@ class InheritedResPartner(models.Model):
             else:
                 _logger.warning("Can not connect to slack client")
 
-    @api.multi
     def partner_contact_save(self):
         return {
             'type': 'ir.actions.client',

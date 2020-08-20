@@ -51,7 +51,8 @@ class CashFlowProjection(models.TransientModel):
             month_spacing = 1
         # Calculate the start day and end date of the cycle
         today = fields.Date.today()
-        start_date = self.get_start_date(week_spacing, month_spacing)
+        weekday = (today.weekday() + 1) % 7
+        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
         # Create list of date range
         date_list = []
         due_transaction_options = self.env['cash.flow.transaction.type'].sudo().search(
@@ -154,12 +155,6 @@ class CashFlowProjection(models.TransientModel):
             'period_type': period_unit,
         }
         return rcontext, num_period, period_unit
-    
-    def get_start_date(self, week_spacing, month_spacing):
-        today = fields.Date.today()
-        weekday = (today.weekday() + 1) % 7
-        start_date = today - datetime.timedelta(weekday * week_spacing + (today.day - 1) * month_spacing)
-        return start_date
     
     def _get_period_name(self, start_date, end_date, period_type, is_due_period):
         """
@@ -460,12 +455,12 @@ class CashFlowProjection(models.TransientModel):
         """
         so_lead_time = self.env.user.company_id.customer_payment_lead_time
         query_so_lines = """
-             SELECT cast('sale_order' as text) as id, cast('Sales' as text) as name, so.amount_so_remaining as amount, so.name as account_name, TO_CHAR(so.confirmation_date + interval '{}' day, 'mm/dd/yyyy') as date, so.id as line_id, so.id as account_id, rp.name as partner_name
+             SELECT cast('sale_order' as text) as id, cast('Sales' as text) as name, so.amount_so_remaining as amount, so.name as account_name, TO_CHAR(so.date_order + interval '{}' day, 'mm/dd/yyyy') as date, so.id as line_id, so.id as account_id, rp.name as partner_name
              FROM sale_order so LEFT JOIN res_partner rp ON so.partner_id = rp.id
              WHERE state NOT IN ('draft', 'cancel')
                             AND amount_so_remaining > 0
-                            AND cast((confirmation_date + interval '{}' day) as date) >= '{}'
-                            AND cast((confirmation_date + interval '{}' day) as date) <= '{}'
+                            AND cast((date_order + interval '{}' day) as date) >= '{}'
+                            AND cast((date_order + interval '{}' day) as date) <= '{}'
                             AND so.company_id = {}
         """.format(so_lead_time, so_lead_time, from_date, so_lead_time, to_date, self.env.user.company_id.id)
         return query_so_lines

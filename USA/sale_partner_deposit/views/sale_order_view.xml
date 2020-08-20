@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="view_deposit_total_sale_form" model="ir.ui.view">
         <field name="name">view_deposit_button_sale_form</field>
@@ -7,13 +6,11 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_quotation_send']" position="before">
                 <button name="%(account_partner_deposit.action_view_deposit_order_form)d" string="Create deposit" type="action"
-                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', '!=', 'sale')]}"
-                        groups="account.group_account_user"/>
+                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', '!=', 'sale')]}"/>
             </xpath>
 
             <div name="button_box" position="inside">
                 <button name="action_view_deposit" type="object" class="oe_stat_button" icon="fa-money"
-                        groups="account.group_account_user"
                         attrs="{'invisible': [('deposit_count', '=', 0)]}">
                     <field name="deposit_count" widget="statinfo" string="Deposits"/>
                 </button>
@@ -34,10 +31,10 @@
     </record>
 
     <!--Remove Percentage invoice method-->
-    <record id="view_create_invoice_method_sale_form" model="ir.ui.view">
-        <field name="name">view_create_invoice_method_sale_form</field>
+    <record id="view_order_form" model="ir.ui.view">
+        <field name="name">sale.order.form</field>
         <field name="model">sale.order</field>
-        <field name="inherit_id" ref="sale_management.sale_order_view_form"/>
+        <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr='//button[@context="{&apos;default_advance_payment_method&apos;: &apos;percentage&apos;}"]' position="attributes">
                 <attribute name="context">{}</attribute>

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
      <record id="view_account_financial_report_line_budget_form" model="ir.ui.view">
         <field name="name">view_account_financial_report_line_budget_form</field>
