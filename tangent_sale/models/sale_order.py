@@ -11,7 +11,6 @@ class SaleOrder(models.Model):
 
     multiline_invoice = fields.Boolean('Multi-line Invoice')
     
-    @api.multi
     @api.onchange('parent_task_id')
     def onchange_parent_task_id(self):
         for order in self.filtered('parent_task_id'):
@@ -37,7 +36,6 @@ class SaleOrderLine(models.Model):
         self.ensure_one()
         return '{}: {}'.format(self.site_id.name, self.product_id.name) if self.product_id and self.site_id else ''
     
-    @api.multi
     @api.onchange('product_id', 'site_id')
     def product_id_change(self):
         res = super(SaleOrderLine, self).product_id_change()
@@ -49,7 +47,6 @@ class SaleOrderLine(models.Model):
         })
         return res
 
-    @api.multi
     @api.onchange('product_id', 'parent_task_id')
     def _onchange_parent_task_id(self):
         res = {}
