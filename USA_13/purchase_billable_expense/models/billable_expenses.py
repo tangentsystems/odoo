@@ -41,3 +41,14 @@ class BillableExpenses(models.Model):
         """
         account = self._get_expense_account(self.mapped('purchase_line_id'))
         return account or super(BillableExpenses, self).get_expense_account()
+
+    def unlink(self):
+        """
+        In case that we set a vendor bill to draft, removed the link between expenses that created
+        from PO and this vendor bill (not delete so still keep it in PO), then delete the remaining expenses.
+        """
+        if self._context.get('unlink_bill', False):
+            purchase_expense = self.filtered('purchase_id')
+            purchase_expense.write({'bill_id': False})
+            self -= purchase_expense
+        return super(BillableExpenses, self).unlink()

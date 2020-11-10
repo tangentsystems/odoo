@@ -17,3 +17,4 @@ from . import account_journal_dashboard
 from . import usa_bank_reconciliation
 from . import account_batch_payment
 from . import reconciliation_widget
+from . import account_account

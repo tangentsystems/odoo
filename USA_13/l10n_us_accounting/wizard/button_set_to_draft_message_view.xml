@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <form>
                 <field name="payment_id" invisible="1"/>
+                <field name="move_id" invisible="1"/>
                 <field name="message" readonly="1"/>
                 <footer>
                     <button name="button_set_to_draft" type="object" class="btn-primary" string="Reset to draft"/>

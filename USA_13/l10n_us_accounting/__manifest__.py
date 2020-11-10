@@ -52,6 +52,9 @@
         'views/account_batch_payment_views.xml',
         'views/usa_bank_reconciliation.xml',
         'views/followup_view.xml',
+        'views/account_account_views.xml',
+        'views/usa_1099_report.xml',
+        'views/account_move_line_views.xml',
 
         'report/list_invoices_templates.xml',
         'report/account_followup_report_templates.xml',

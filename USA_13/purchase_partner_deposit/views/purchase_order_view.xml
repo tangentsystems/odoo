@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_view_invoice']" position="after">
                 <button name="%(account_partner_deposit.action_view_deposit_order_form)d" string="Create deposit" type="action"
-                        attrs="{'invisible': ['|', '|', ('state', '!=', 'purchase'),
+                        attrs="{'invisible': ['|', '|', ('state', 'not in', ['purchase', 'done']),
                         ('invoice_status', '=', 'invoiced'), ('order_line', '=', [])]}"/>
             </xpath>
 

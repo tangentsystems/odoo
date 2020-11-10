@@ -168,7 +168,8 @@
 
             <field name="category_id" position="before">
                 <field name="usa_partner_type" invisible="1"/>
-                <field name="vendor_eligible_1099" attrs="{'invisible': [('usa_partner_type', 'not in', ['supplier', 'both'])]}"/>
+                <field name="supplier_rank" invisible="1"/>
+                <field name="vendor_eligible_1099" attrs="{'invisible': [('supplier_rank', '&lt;', 1)]}"/>
             </field>
         </field>
     </record>

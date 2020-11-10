@@ -22,7 +22,7 @@ class PurchaseOrderUSA(models.Model):
             'view_id': view_id,
         }
 
-    def open_expense_popup(self):
+    def _assign_billable_expense(self):
         self.ensure_one()
         purchase_line_ids = self.billable_expenses_ids.mapped('purchase_line_id')
         expense_env = self.env['billable.expenses'].sudo()
@@ -43,6 +43,8 @@ class PurchaseOrderUSA(models.Model):
                     'bill_date': date
                 })
 
+    def open_expense_popup(self):
+        self._assign_billable_expense()
         return self._get_expense_popup()
 
     def assign_customer(self):

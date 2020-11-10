@@ -20,4 +20,5 @@
         'views/billable_expense_report.xml',
     ],
     'qweb': ['static/src/xml/*.xml'],
+    'images': ['static/description/main_screenshot.png'],
 }

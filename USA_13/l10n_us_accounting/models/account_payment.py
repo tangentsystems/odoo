@@ -27,7 +27,9 @@ class AccountPaymentUSA(models.Model):
     check_number_text = fields.Char(compute='_compute_check_number_text', store=True)
     display_applied_invoices = fields.Boolean(compute='_get_display_applied_invoices',
                                               help="Technical field to display/hide applied invoices")
-    has_been_reviewed = fields.Boolean(string='Have been reviewed?', compute='_compute_has_been_reviewed', store=True, default=False, copy=False)
+    has_been_reviewed = fields.Boolean(string='Have been reviewed?', compute='_compute_has_been_reviewed',
+                                       store=True, default=False, copy=False)
+    has_been_voided = fields.Boolean('Voided?', copy=False)
 
     @api.depends('move_line_ids', 'move_line_ids.statement_line_id', 'journal_id')
     def _compute_has_been_reviewed(self):
@@ -232,6 +234,7 @@ class AccountPaymentUSA(models.Model):
         return {'type': 'ir.actions.client', 'tag': 'history_back'}
 
     def action_draft(self):
+        self.write({"has_been_voided": False})
         super(AccountPaymentUSA, self.with_context(from_payment=self.ids)).action_draft()
 
     def action_draft_usa(self):
@@ -305,6 +308,10 @@ class AccountPaymentUSA(models.Model):
     @api.onchange('partner_id', 'currency_id')
     def _update_open_invoice_ids(self):
         self.open_invoice_ids = [(5,)]
+
+    def action_void(self):
+        action = self.env.ref('account.action_view_account_move_reversal').read()[0]
+        return action
 
     # CHECK PRINTING
     def _check_make_stub_line(self, invoice):

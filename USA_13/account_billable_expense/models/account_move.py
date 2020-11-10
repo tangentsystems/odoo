@@ -15,9 +15,12 @@ class AccountInvoiceUSA(models.Model):
             record.is_billable = any(line.is_billable for line in record.invoice_line_ids)
 
     def _get_expense_btn_name(self):
+        """
+        Compute name for button assign expenses to invoice.
+        Billable expense is shared between main and sub contacts.
+        """
         for record in self:
-            expenses = record.partner_id.billable_expenses_ids.filtered(
-                lambda ex: ex.is_outstanding and ex.company_id == record.company_id)
+            expenses = record.partner_id.get_outstanding_expenses({}, record.company_id.ids, subcontact=True)
             if expenses:
                 added_expenses = expenses.filtered(lambda ex: ex.invoice_line_id)
                 record.expense_btn_name = \
@@ -37,8 +40,7 @@ class AccountInvoiceUSA(models.Model):
 
     def get_customer_billable_expenses(self):
         self.ensure_one()
-        billable_expense = self.partner_id.billable_expenses_ids.filtered(
-            lambda ex: ex.is_outstanding and ex.company_id == self.company_id)
+        billable_expense = self.partner_id.get_outstanding_expenses({}, self.company_id.ids, subcontact=True)
         billable_expense.write({'invoice_currency_id': self.currency_id.id})
         return billable_expense.ids
 
@@ -54,7 +56,7 @@ class AccountInvoiceUSA(models.Model):
             'view_id': view_id,
         }
 
-    def open_expense_popup(self):
+    def _assign_billable_expense(self):
         self.ensure_one()
         bill_line_ids = self.billable_expenses_ids.mapped('bill_line_id')
         expense_env = self.env['billable.expenses'].sudo()
@@ -68,25 +70,18 @@ class AccountInvoiceUSA(models.Model):
                 'bill_date': self.invoice_date
             })
 
+    def open_expense_popup(self):
+        self._assign_billable_expense()
         return self._get_expense_popup()
 
     def assign_customer(self):
         return {'type': 'ir.actions.act_window_close'}
 
-    def button_cancel(self):
-        """
-        Remove Expense if Bill is canceled/deleted.
-        Bill has to be canceled first in order to be deleted, so don't need to implement unlink.
-        """
-        res = super(AccountInvoiceUSA, self).button_cancel()
+    def button_draft(self):
+        res = super(AccountInvoiceUSA, self).button_draft()
         for record in self:
-            record.billable_expenses_ids.sudo().unlink()  # delete expense for bill
-
-            # make expense available again for invoice
-            for line in record.invoice_line_ids:
-                reset_expenses = line.invoice_billable_expenses_ids.filtered(lambda x: x.invoice_line_id.id == line.id)
-                reset_expenses.sudo().write({'invoice_line_id': False})
-                line.invoice_billable_expenses_ids = [(5,)]
+            # Context unlink_bill=True is used in purchase_billable_expense
+            record.billable_expenses_ids.sudo().with_context(unlink_bill=True).unlink()  # delete expense for bill
 
         return res
 

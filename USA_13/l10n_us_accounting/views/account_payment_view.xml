@@ -18,6 +18,12 @@
 
             <button name="cancel" position="after">
                 <button name="delete_payment" type="object" string="Delete" states="draft,cancelled" confirm="Are you sure you want to delete this record ?"/>
+                <field name="has_been_voided" invisible="1"/>
+                <button name="action_void" string="Void"
+                        attrs="{'invisible':['|', ('has_been_voided', '!=', False), ('state', 'in', ['draft', 'cancelled'])]}"
+                        type="object"
+                        help="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"
+                        confirm="Odoo will create a reversed journal entry if you void this check. Are you sure you want to proceed?"/>
             </button>
 
             <field name="communication" position="after">
@@ -29,6 +35,13 @@
             <field name="payment_transaction_id" position="attributes">
                 <attribute name="attrs">{'invisible': [('payment_transaction_id', '=', False)], 'readonly': True}</attribute>
             </field>
+
+            <!--Void Ribbon-->
+            <div name="button_box" position="after">
+                <field name="has_been_voided" invisible="1"/>
+                <widget name="web_ribbon" title="Void" bg_color="bg-danger"
+                        attrs="{'invisible': [('has_been_voided', '=', False)]}"/>
+            </div>
 
             <!-- Payment Layout: Hide partner_type, payment_type, company_id -->
             <field name="partner_type" position="attributes">
@@ -101,9 +114,9 @@
                 <attribute name="invisible">1</attribute>
             </button>
 
-            <button name="open_payment_matching_screen" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </button>
+            <!--<button name="open_payment_matching_screen" position="attributes">-->
+                <!--<attribute name="invisible">1</attribute>-->
+            <!--</button>-->
 
             <sheet position="inside">
                 <!--Customer Payment-->
@@ -252,6 +265,7 @@
             </field>
             <field name="state" position="after">
                 <field name="has_been_reviewed" optional="hide"/>
+                <field name="has_been_voided"/>
             </field>
         </field>
     </record>

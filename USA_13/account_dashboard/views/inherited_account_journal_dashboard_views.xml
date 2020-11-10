@@ -75,7 +75,8 @@
                     </div>
                     <div class="row">
                         <div class="col-7">
-                            <a type="object" name="open_action" context="{'use_domain': [('invoice_payment_state', '=', 'not_paid'), ('state', '=', 'posted')]}">
+                            <a type="object" name="open_action" context="{'use_domain': [('invoice_payment_state', '=', 'not_paid'), ('state', '=', 'posted')]}"
+                                id="account_dashboard_purchase_pay_link">
                                 <span t-if="journal_type == 'sale'"
                                       t-att-title="dashboard.number_not_due + ' Unpaid Invoices'">
                                     <t t-esc="dashboard.number_open_invoices"/> Unpaid Invoices

@@ -26,18 +26,17 @@ class BillableExpenseReport(models.AbstractModel):
             {'name': _('On Draft Invoice')},
         ]
 
-    def group_by_partner_id(self, line_id):
+    def group_by_partner_id(self, options, line_id):
         domain = [('billable_expenses_ids', '!=', False)]
         if line_id:
-            domain.extend([('id', '=', line_id)])
+            domain.append(('id', '=', line_id))
 
         customer_ids = self.env['res.partner'].search(domain)
         company_ids = self.env.companies.ids
 
         partners = {}
         for partner in customer_ids:
-            outstanding_expenses = partner.billable_expenses_ids.filtered(
-                lambda ex: ex.is_outstanding and ex.company_id.id in company_ids)
+            outstanding_expenses = partner.get_outstanding_expenses(options, company_ids)
             if not outstanding_expenses:
                 continue
 
@@ -63,7 +62,7 @@ class BillableExpenseReport(models.AbstractModel):
         if line_id:
             line_id = line_id.replace('partner_', '')
 
-        partners = self.group_by_partner_id(line_id)
+        partners = self.group_by_partner_id(options, line_id)
 
         for currency in partners:
             total_amount = 0
