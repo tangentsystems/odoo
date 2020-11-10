@@ -47,7 +47,6 @@ class ProjectTask(models.Model):
     #         if task.parent_id:
     #             task.overwrite_subtask_implied = task.parent_id.overwrite_subtask_implied
     
-    @api.multi
     def write(self, vals):
         res = super(ProjectTask, self).write(vals)
         if vals.get('delivered_date'):
