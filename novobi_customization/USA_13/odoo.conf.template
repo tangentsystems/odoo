@@ -4,6 +4,7 @@ proxy_mode = True
 addons_path = /opt/odoo/enterprise,/opt/odoo/odoo/addons,/opt/odoo/shared_modules,/opt/odoo/customized_addons
 data_dir = /var/lib/odoo/
 without_demo=all
+geoip_database = /usr/share/GeoIP/GeoIP.dat
 
 workers = {{ config['WORKERS'] | default(2, true) }}
 limit_time_cpu = 72000

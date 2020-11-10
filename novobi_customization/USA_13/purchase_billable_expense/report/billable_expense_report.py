@@ -7,6 +7,8 @@ from odoo import models, api
 class BillableExpenseReport(models.AbstractModel):
     _inherit = 'billable.expense.report'
 
+    filter_include_po = True
+
     def open_purchase_expense(self, options, params=None):
         if not params:
             params = {}

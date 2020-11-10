@@ -25,13 +25,17 @@
                             <label for="res_name"/>
                             <div class="o_row">
                                 <span>
-                                    <field name="res_name"/>
+                                    <field name="res_reference" widget="reference"
+                                           attrs="{'invisible': [('res_reference', '=', '')]}"/>
+                                    <field name="res_name" attrs="{'invisible': [('res_reference', '!=', '')]}"/>
                                 </span>
                                 <span>
                                     <button name="action_open_all_logs" icon="fa-arrow-right" type="object"
                                             string="All Audit Logs" class="btn-link"/>
                                 </span>
                             </div>
+                            <field name="parent_reference" widget="reference" string="Original Trans. No."
+                                   attrs="{'invisible': [('parent_reference', '=', '')]}"/>
                             <field name="operation"/>
                             <field name="author_id"/>
                             <field name="res_partner_id"/>
@@ -66,6 +70,7 @@
                 <field name="res_partner_id"/>
                 <field name="operation"/>
                 <field name="res_name"/>
+                <field name="parent_name" string="Original Trans. No."/>
                 <field name="model_id"/>
                 <field name="res_field_name"/>
                 <field name="res_old_value"/>
@@ -81,7 +86,7 @@
         <field name="model">audit.trail.log</field>
         <field name="arch" type="xml">
             <search>
-                <field name="res_name"/>
+                <field name="res_name" string="Resource Name"/>
                 <field name="name"/>
                 <field name="model_id"/>
                 <field name="author_id"/>
@@ -94,10 +99,11 @@
                 <separator/>
                 <group expand="0" string="Group By...">
                     <filter string="Author" name="group_by_author" domain="[]" context="{'group_by': 'author_id'}"/>
-                    <filter string="Partner" name="group_by_partner" domain="[]" context="{'group_by': 'res_partner_id'}"/>
+                    <filter string="Partner" name="group_by_partner" domain="[]"
+                            context="{'group_by': 'res_partner_id'}"/>
                     <filter string="Resource Name" name="group_by_log_name" domain="[]"
                             context="{'group_by': 'res_name'}"/>
-                    <filter string="Resource Model" name="group_by_res_model" domain="[]"
+                    <filter string="Tracking Model" name="group_by_res_model" domain="[]"
                             context="{'group_by': 'model_id'}"/>
                     <filter string="Audit Rule" name="group_by_rule" domain="[]"
                             context="{'group_by': 'rule_id'}"/>

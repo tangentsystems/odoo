@@ -180,8 +180,9 @@
                     </tr>
                 </t>
             </t>
-            <tr><td>Date</td><td><t t-esc="line.date"/></td></tr>
-            <tr><td>Due Date</td><td><t t-esc="line.date_maturity || line.date"/></td></tr>
+            <tr><td>Date</td><td><t t-esc="line.date.format('MM/DD/YYYY')"/></td></tr>
+            <t t-set="due_date" t-value="line.date_maturity ? line.date_maturity : line.date"/>
+            <tr><td>Due Date</td><td><t t-esc="due_date.format('MM/DD/YYYY')"/></td></tr>
             <tr t-if="line.journal_id.id">
                 <td>Journal</td>
                 <td><t t-esc="line.journal_id.display_name"/></td>

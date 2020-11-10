@@ -29,6 +29,7 @@
             <script type="text/javascript" src="/l10n_us_accounting/static/src/js/rule_selector.js"/>
             <script type="text/javascript" src="/l10n_us_accounting/static/src/js/model_field_selector_usa.js"/>
             <script type="text/javascript" src="/l10n_us_accounting/static/src/js/rule_domain.js"/>
+            <script type="text/javascript" src="/l10n_us_accounting/static/src/js/usa_1099_report.js"></script>
         </xpath>
     </template>
 

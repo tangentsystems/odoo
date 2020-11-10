@@ -34,7 +34,7 @@ class SalesOrder(models.Model):
     validity_date = fields.Date(states=READONLY_STATES)
     date_order = fields.Datetime(states=READONLY_STATES)
     pricelist_id = fields.Many2one('product.pricelist', states=READONLY_STATES)
-    picking_policy = fields.Selection(states=READONLY_STATES)
+    #picking_policy = fields.Selection(states=READONLY_STATES)
     sale_order_option_ids = fields.One2many('sale.order.option', 'order_id', states=READONLY_STATES)
 
     def action_review_draft(self):

@@ -194,9 +194,9 @@ odoo.define('l10n_us_accounting.ReconciliationRenderer', function (require) {
                         .appendTo($line.find('.cell_info_popover'))
                         .attr("data-content", qweb.render('reconciliation.line.mv_line.details', {'line': line}));
                 } else {
-                    if (typeof line.date !== 'string') {
-                        line.date = line.date.format('MM/DD/YYYY'); // Convert date from moment object to string
-                    }
+                    // if (typeof line.date !== 'string') {
+                    //     line.date = line.date.format('MM/DD/YYYY'); // Convert date from moment object to string
+                    // }
                     // Fetch account name if it is empty
                     if (line.account_id.id && !line.account_id.display_name) {
                         self._rpc({

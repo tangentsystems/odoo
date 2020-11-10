@@ -52,7 +52,6 @@
                 <header>
                     <button string="Confirm" name="action_confirm_rule"
                             type="object" states="draft" class="oe_highlight"/>
-                    <button string="View Audit Logs" name="%(action_view_all_audit_log)d" type="action"/>
                     <button string="Cancel" name="action_cancel_rule"
                             type="object" states="draft,confirmed"/>
                     <button string="Set To Draft" name="action_set_draft"
@@ -67,7 +66,7 @@
                         <field name="model_id" options="{'no_open': True, 'no_create_edit': True, 'no_create': True}"
                                required="1"
                                attrs="{'readonly': [('state', 'in', ['confirmed', 'cancel'])]}"
-                               domain="[('transient', '=', False), ('abstract', '=', False)]"
+                               domain="[('transient', '=', False), ('abstract', '=', False), ('model', '!=', 'audit.trail.log')]"
                                context="{'tree_view_ref': 'novobi_audit_trail.view_model_selection_tree'}"/>
                     </group>
                     <notebook colspan="4">
@@ -85,6 +84,12 @@
                         </page>
                         <page string="Tracking Fields">
                             <group>
+                                <field name="parent_field_id"
+                                       attrs="{'readonly': [('state', 'in', ['confirmed', 'cancel'])]}"
+                                       domain="[('model_id', '=', model_id), ('store', '=', True)]"
+                                       options="{'no_create': True, 'no_open': True}"
+                                       context="{'tree_view_ref': 'novobi_audit_trail.model_fields_tree_view'}"
+                                />
                                 <field name="is_tracking_all_fields"
                                        attrs="{'readonly': [('state', 'in', ['confirmed', 'cancel'])]}"/>
                             </group>

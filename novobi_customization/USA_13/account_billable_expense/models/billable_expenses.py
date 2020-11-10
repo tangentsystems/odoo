@@ -40,7 +40,7 @@ class BillableExpenses(models.Model):
     def _get_outstanding_state(self):
         for record in self:
             line_id = record.invoice_line_id
-            record.is_outstanding = not line_id or (line_id and line_id.move_id.state == 'draft')
+            record.is_outstanding = not line_id or (line_id and line_id.move_id.state != 'posted')
 
     @api.depends('bill_id')
     def _compute_company_id(self):

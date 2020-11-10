@@ -315,7 +315,7 @@ class AccountMoveUSA(models.Model):
         return super(AccountMoveUSA, self).search_read(domain, fields, offset, limit, order)
 
     def action_delete(self):
-        super(AccountMoveUSA, self).unlink()
+        self.unlink()
         return {'type': 'ir.actions.client', 'tag': 'history_back'}
 
     def button_draft(self):
@@ -460,6 +460,7 @@ class AccountMoveLineUSA(models.Model):
     should_be_reconciled = fields.Boolean(compute='_compute_should_be_reconciled', store=True, copy=False,
                                           help='Check if this account_move_line should be in reconciliation screen.')
     is_fund_line = fields.Boolean()
+    eligible_for_1099 = fields.Boolean(string='Eligible for 1099?', default=True)
 
     @api.depends('journal_id.default_credit_account_id', 'journal_id.default_debit_account_id', 'account_id')
     def _compute_should_be_reconciled(self):

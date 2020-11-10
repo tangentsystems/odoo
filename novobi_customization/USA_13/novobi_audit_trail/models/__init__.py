@@ -6,5 +6,4 @@
 ##############################################################################
 from . import audit_trail_log
 from . import audit_trail_rule
-from . import sale_order
 from . import ir_module

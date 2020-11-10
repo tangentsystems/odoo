@@ -10,10 +10,12 @@
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
             <field name="order_line" position="after">
-                <button name="open_expense_popup" type="object" class="btn btn-sm btn-link"
+                <div class="mb16">
+                    <button name="open_expense_popup" type="object" class="btn btn-sm btn-link"
                         style="background-color: Transparent;"
                         string="Assign expenses to a customer"
                         attrs="{'invisible': [('state', 'not in', ['purchase', 'done'])]}"/>
+                </div>
             </field>
 
             <xpath expr="//notebook/page/field/tree/field[@name='name']" position="replace">

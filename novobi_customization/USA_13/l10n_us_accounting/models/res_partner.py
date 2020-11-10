@@ -121,8 +121,9 @@ class CustomerUSA(models.Model):
         res = super(CustomerUSA, self).create(vals_list)
 
         # Update usa_partner_type (Customer/Vendor/Both) after super()
-        if 'customer_rank' in vals_list[0] or 'supplier_rank' in vals_list[0]:
+        if vals_list and ('customer_rank' in vals_list[0] or 'supplier_rank' in vals_list[0]):
             res._update_usa_partner_type()
+
         return res
 
     def write(self, vals):

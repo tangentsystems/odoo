@@ -15,6 +15,8 @@
 
     'data': [
         'views/purchase_order_view.xml',
+        'report/search_template_view.xml',
         'report/billable_expense_report.xml',
     ],
+    'images': ['static/description/main_screenshot.png'],
 }
