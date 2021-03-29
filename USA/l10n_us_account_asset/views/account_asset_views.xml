@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Add "Asset Category" to supplier invoices -->
+    <record model="ir.ui.view" id="view_bill_asset_category">
+        <field name="name">account.bill.supplier.form</field>
+        <field name="model">account.invoice</field>
+        <field name="inherit_id" ref="account.invoice_supplier_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='invoice_line_ids']/tree/field[@name='asset_category_id']" position="before">
+                <field name="asset_check" invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='invoice_line_ids']/tree/field[@name='asset_category_id']" position="attributes">
+                <attribute name="attrs">{'invisible':[('asset_check','!=',True)]}</attribute>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

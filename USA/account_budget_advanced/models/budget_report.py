@@ -27,7 +27,7 @@ class BudgetReport(models.AbstractModel):
 
     def _get_report_name(self):
         budget = self._get_crossovered_budget_obj()
-        return budget.name
+        return budget.name if len(budget) == 1 else 'Consolidated Budget Report'
 
     def get_report_filename(self, options):
         if options and options.get('crossovered_budget_id', False):
@@ -75,12 +75,12 @@ class BudgetReport(models.AbstractModel):
         return lines
 
     @api.multi
-    def _get_dict_lines(self, children_lines, column_number, crossovered_budget, daterange_list,
+    def _get_dict_lines(self, children_lines, column_number, budget_ids, daterange_list,
                         financial_report, currency_table, is_profit_budget):
         final_result_table = []
         AccountAccount = self.env['account.account']
         empty = [0.0 for i in range(column_number)]
-        analytic_account_id = crossovered_budget.analytic_account_id
+        analytic_account_ids = budget_ids.mapped('analytic_account_id')
 
         # build comparison table
         for line in children_lines:
@@ -91,7 +91,7 @@ class BudgetReport(models.AbstractModel):
 
             if line.hide_in_budget:
                 final_result_table += self._get_unaffected_lines(line, financial_report, currency_table,
-                                                                 daterange_list, analytic_account_id)
+                                                                 daterange_list, analytic_account_ids)
                 continue
 
             vals = {
@@ -119,7 +119,7 @@ class BudgetReport(models.AbstractModel):
                 edit_domain = line.domain.replace('account_id.', '')
                 domain_ids = sorted(AccountAccount.search(ast.literal_eval(edit_domain)).ids)
                 balance_sheet_dict = _get_balance_sheet_value(line, financial_report, currency_table,
-                                                              daterange_list, analytic_account_id)
+                                                              daterange_list, analytic_account_ids)
 
             for domain_id in domain_ids:
                 name = str(line._get_gb_name(domain_id))
@@ -127,7 +127,7 @@ class BudgetReport(models.AbstractModel):
                 actual_total = 0
                 budget_total = 0
 
-                budget_lines = crossovered_budget.crossovered_budget_line.filtered(
+                budget_lines = budget_ids.mapped('crossovered_budget_line').filtered(
                     lambda x: domain_id in x.general_budget_id.account_ids.ids).sorted(lambda x: x.date_from)
 
                 if not is_profit_budget:  # BALANCE SHEET
@@ -137,7 +137,7 @@ class BudgetReport(models.AbstractModel):
                         range_lines = budget_lines.filtered(lambda x: x.date_to == daterange[1])
 
                         practical_amount = practical_amount_array[index]
-                        planned_amount_entry = range_lines[0].planned_amount_entry if range_lines else 0
+                        planned_amount_entry = sum([i.planned_amount_entry for i in range_lines])
 
                         result = self._get_budget_value(practical_amount, planned_amount_entry, True)
                         columns.extend(result)
@@ -192,7 +192,7 @@ class BudgetReport(models.AbstractModel):
                 })
 
             if len(lines) == 1:
-                new_lines = self._get_dict_lines(line.children_ids, column_number, crossovered_budget, daterange_list,
+                new_lines = self._get_dict_lines(line.children_ids, column_number, budget_ids, daterange_list,
                                                  financial_report, currency_table, is_profit_budget)
 
                 if new_lines and line.level > 0 and line.formulas:
@@ -216,7 +216,10 @@ class BudgetReport(models.AbstractModel):
         if additional_context is None:
             additional_context = {}
 
-        crossovered_budget = self._get_crossovered_budget_obj()
+        budget_ids = self._get_crossovered_budget_obj()
+        consolidated = True if len(budget_ids) > 1 else False
+        crossovered_budget = budget_ids[0]  # 1st budget record
+
         is_profit_budget = True if crossovered_budget.budget_type == 'profit' else False
         financial_report = self.env.ref('account_reports.account_financial_report_profitandloss0') \
             if is_profit_budget else self.env.ref('account_reports.account_financial_report_balancesheet0')
@@ -227,7 +230,7 @@ class BudgetReport(models.AbstractModel):
         column_number = (len(daterange_list) + 1) * 4 if is_profit_budget else (len(daterange_list)) * 4
 
         # # get lines
-        lines = self._get_dict_lines(financial_report.line_ids, column_number, crossovered_budget, daterange_list,
+        lines = self._get_dict_lines(financial_report.line_ids, column_number, budget_ids, daterange_list,
                                      financial_report, currency_table, is_profit_budget)
 
         # add more options
@@ -235,14 +238,21 @@ class BudgetReport(models.AbstractModel):
             'column_number': column_number,
             'crossovered_budget': crossovered_budget,
             'crossovered_budget_id': crossovered_budget.id,
+            'budget_ids': budget_ids,
             'lines': lines,
             'daterange_list': daterange_list,
             'groupby': options['groupby']
         })
 
+        analytic_account = crossovered_budget.analytic_account_id.name if crossovered_budget.analytic_account_id else False
+        if consolidated:
+            analytic_account_ids = budget_ids.mapped('analytic_account_id')
+            analytic_account = ', '.join(acc.name for acc in analytic_account_ids)
+
         additional_context.update({
             'crossovered_budget': crossovered_budget,
-            'currency_id': self.env.user.company_id.currency_id
+            'currency_id': self.env.user.company_id.currency_id,
+            'analytic_account': analytic_account,
         })
 
         return super(BudgetReport, self).get_html(options, line_id=line_id,
@@ -340,19 +350,27 @@ class BudgetReport(models.AbstractModel):
 
     def _get_crossovered_budget_obj(self):
         crossovered_budget_id = self.env.context.get('crossovered_budget_id', False)
+        budget_ids = self.env.context.get('budget_ids', False)
+        if budget_ids:
+            crossovered_budget_id = budget_ids
+
         params = self.env.context.get('params', False)
 
         if not crossovered_budget_id and params and params.get('action', False):
             action_obj = self.env['ir.actions.client'].browse(params['action'])
             crossovered_budget_id = action_obj.params.get('crossovered_budget_id', False)
+            budget_ids = action_obj.params.get('budget_ids', False)
+            if budget_ids:
+                crossovered_budget_id = budget_ids
 
+        # can be 1 or multiple records
         crossovered_budget = self.env['crossovered.budget'].browse(crossovered_budget_id)
 
         return crossovered_budget
 
     @api.multi
     def _get_unaffected_lines(self, children_lines, financial_report, currency_table,
-                              daterange_list, analytic_account_id):
+                              daterange_list, analytic_account_ids):
         """
         Special function to get lines for Unaffected Earnings in Balance Sheet report
         :return: dictionary of lines to display in report
@@ -361,7 +379,7 @@ class BudgetReport(models.AbstractModel):
         for line in children_lines:
             columns = []
             line_dict = _get_balance_sheet_value(line, financial_report, currency_table,
-                                                 daterange_list, analytic_account_id)
+                                                 daterange_list, analytic_account_ids)
             line_array = line_dict['line']
 
             for practical_amount in line_array:
@@ -385,7 +403,7 @@ class BudgetReport(models.AbstractModel):
 
             if line.children_ids:
                 new_lines = self._get_unaffected_lines(line.children_ids, financial_report, currency_table,
-                                                       daterange_list, analytic_account_id)
+                                                       daterange_list, analytic_account_ids)
                 lines += new_lines
             result += lines
         return result

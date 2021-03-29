@@ -242,7 +242,8 @@ class CashflowDetailReport(models.AbstractModel):
             weekday = (to_date.weekday() + 1) % 7
             start_date = to_date - relativedelta(days=(weekday * week_spacing + (to_date.day - 1) * month_spacing))
             to_date = start_date - relativedelta(days=1)
-            from_date = to_date - relativedelta(months=1)
+            due_transaction_limit = self.env.user.company_id.past_due_transaction_limit or 1
+            from_date = to_date - relativedelta(months=due_transaction_limit)
         elif dateString:
             if '-' in dateString:
                 index = dateString.index('-')

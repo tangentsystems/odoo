@@ -31,7 +31,7 @@
     <!--Invoice Document report with Payments-->
     <template id="report_invoice_document_for_credit_note_write_off_with_payments" inherit_id="account.report_invoice_document_with_payments">
         <xpath expr='//t[@t-esc="payment_vals[&apos;date&apos;]"]/..' position="replace">
-            <i class="oe_form_field text-right oe_payment_label">Applied on <t t-esc="payment_vals['date']"/></i>
+            <i class="oe_form_field text-right oe_payment_label">Less <t t-esc="payment_vals['ref']"/> <t t-esc="payment_vals['date']"/></i>
         </xpath>
     </template>
 </odoo>

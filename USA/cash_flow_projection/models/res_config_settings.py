@@ -18,3 +18,5 @@ class ResConfigSettings(models.TransientModel):
     cash_flow_period_number = fields.Integer(related='company_id.cash_flow_period_number', string='Number of period',
                                              readonly=False)
     module_cash_flow_projection_deposit = fields.Boolean("Deposits for Cash Flow Projection")
+    past_due_transaction_limit = fields.Integer(string='Past Due Transaction Limitation',
+                                                related='company_id.past_due_transaction_limit', readonly=False)

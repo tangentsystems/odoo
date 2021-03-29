@@ -25,7 +25,9 @@
         'views/budget_entry_screen.xml',
         'views/budget_report_screen.xml',
         'views/account_budget_views.xml',
+
         'wizard/account_budget_wizard_view.xml',
+        'wizard/consolidated_budget_wizard_views.xml',
     ],
     'qweb': ['static/src/xml/*.xml'],
 }

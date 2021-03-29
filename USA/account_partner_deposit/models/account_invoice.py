@@ -73,7 +73,8 @@ class InvoiceDeposit(models.Model):
                     lambda r: not r.reconciled and r.account_id.internal_type in ('payable', 'receivable'))
 
             register_payment_line = self._create_deposit_payment_entry(credit_aml, line_to_reconcile)
-            self.register_payment(register_payment_line)
+            if register_payment_line:
+                self.register_payment(register_payment_line)
         else:
             return super(InvoiceDeposit, self).assign_outstanding_credit(credit_aml_id)
 
@@ -84,6 +85,9 @@ class InvoiceDeposit(models.Model):
 
         if self.env.context.get('partial_amount', False):
             amount = self.env.context.get('partial_amount')
+
+        if float_is_zero(amount, precision_rounding=self.currency_id.rounding):
+            return False
 
         company_id = payment_line.company_id
         journal_id = False
@@ -97,10 +101,11 @@ class InvoiceDeposit(models.Model):
         debit_account, credit_account = self._get_account_side(payment_line, invoice_lines)
         reference = "Deposit to Payment"
         payment_id = payment_line.payment_id
+        date = self.date_invoice  # date of invoice, instead of deposit
 
         new_account_move = self.env['account.move'].create({
             'journal_id': journal_id.id,
-            'date': payment_line.date,
+            'date': date,
             'ref': reference,
             'is_deposit': True,
             'line_ids': [(0, 0, {
@@ -108,14 +113,14 @@ class InvoiceDeposit(models.Model):
                 'account_id': debit_account.id,
                 'debit': amount,
                 'credit': 0,
-                'date': payment_line.date,
+                'date': date,
                 'name': reference,
             }), (0, 0, {
                 'partner_id': self.partner_id.id if self.partner_id else False,
                 'account_id': credit_account.id,
                 'debit': 0,
                 'credit': amount,
-                'date': payment_line.date,
+                'date': date,
                 'name': reference,
             })],
         })
@@ -136,7 +141,8 @@ class InvoiceDeposit(models.Model):
     def _reconcile_deposit(self, deposits, invoice):
         # Helper function to reconcile deposit automatically when confirm Invoice/Bill
         for deposit in deposits:
-            move_line = deposit.move_line_ids.filtered(lambda line: line.account_id.reconcile and
-                                                                    line.account_id.internal_type != 'liquidity')
+            move_line = deposit.move_line_ids.filtered(lambda line: line.account_id.reconcile
+                                                                    and line.account_id.internal_type != 'liquidity'
+                                                                    and not line.reconciled)
             if move_line:
                 invoice.assign_outstanding_credit(move_line.id)

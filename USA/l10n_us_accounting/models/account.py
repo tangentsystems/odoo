@@ -23,11 +23,6 @@ class AccountReconcileModelUSA(models.Model):
     line_ids = fields.One2many('account.reconcile.model.line', 'line_id', string='Bank rule lines')
 
     label = fields.Char(string='Memo')
-
-    rule_model_id = fields.Many2one('ir.model', string='Model to apply bank rule',
-                                    domain=['model', '=', 'account.bank.statement.line'],
-                                    compute='_compute_rule_model_id')
-
     internal_transfer = fields.Boolean(string='Internal Transfer', default=False)
 
     # Override old attribute because they are moved to account.reconcile.model.line
@@ -38,10 +33,6 @@ class AccountReconcileModelUSA(models.Model):
     amount = fields.Float(required=False)
 
     account_id_transfer = fields.Many2one('account.journal', string='Account', ondelete='set null', domain=[('type', '=', 'bank')])
-
-    def _compute_rule_model_id(self):
-        for record in self:
-            record.rule_model_id = 'account.bank.statement.line'
 
     @api.onchange('match_nature')
     def _onchange_payee(self):

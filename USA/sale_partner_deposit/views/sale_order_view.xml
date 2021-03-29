@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='action_quotation_send']" position="before">
                 <button name="%(account_partner_deposit.action_view_deposit_order_form)d" string="Create deposit" type="action"
-                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', '!=', 'sale')]}"
+                        attrs="{'invisible': ['|', ('invoice_status', '=', 'invoiced'), ('state', 'not in', ['sale', 'done'])]}"
                         groups="account.group_account_user"/>
             </xpath>
 

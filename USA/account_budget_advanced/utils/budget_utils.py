@@ -100,7 +100,7 @@ def _divide_line(line, column_number, line_obj):
     return [line1, line2]
 
 
-def _get_balance_sheet_value(line, financial_report, currency_table, daterange_list, analytic_account_id, last_year=None):
+def _get_balance_sheet_value(line, financial_report, currency_table, daterange_list, analytic_account_ids, last_year=None):
     """
     Function to get actual balance in Balance Sheet report
     :return: dictionary of value line for each period
@@ -115,7 +115,7 @@ def _get_balance_sheet_value(line, financial_report, currency_table, daterange_l
         date_from, date_to, strict_range = line.with_context(date_from=False, date_to=date_to)._compute_date_range()
         r = line.with_context(date_from=False, date_to=date_to,
                               strict_range=strict_range,
-                              analytic_account_ids = analytic_account_id)._eval_formula(financial_report,
+                              analytic_account_ids = analytic_account_ids)._eval_formula(financial_report,
                                                                        debit_credit,
                                                                        currency_table,
                                                                        linesDicts[0])

@@ -8,7 +8,8 @@ RUN pip3 install -r /requirements.txt
 COPY ./entrypoint.sh /
 COPY ./make_env.py /
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && chmod +x /opt/odoo/odoo/odoo-bin
+RUN apt install -y geoip-database
 
 
 ADD . /opt/odoo/customized_addons/

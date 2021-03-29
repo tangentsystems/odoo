@@ -49,53 +49,21 @@ class AccountMoveUSA(models.Model):
 
     @api.multi
     def post(self, invoice=False):
-        self._post_validate()
         tracking = set()
-        for move in self:
-            move.line_ids.create_analytic_lines()
-            if move.name == '/':
-                new_name = False
+        if invoice and invoice.type in ['out_refund', 'in_refund'] and \
+                invoice.is_write_off and not(invoice.move_name and invoice.move_name != '/'):
+
+            for move in self:
                 journal = move.journal_id
+                sequence = journal.write_off_sequence_id
 
-                if invoice and invoice.move_name and invoice.move_name != '/':
-                    new_name = invoice.move_name
-                else:
-                    if journal.sequence_id:
-                        # If invoice is actually refund and journal has a refund_sequence then use
-                        # that one or use the regular one
-                        sequence = journal.sequence_id
-                        if invoice and invoice.type in ['out_refund', 'in_refund']:
-                            if invoice.is_write_off:
-                                sequence = journal.write_off_sequence_id
-                            elif journal.refund_sequence:
-                                if not journal.refund_sequence_id:
-                                    raise UserError('Please define a sequence for the credit notes')
-                                sequence = journal.refund_sequence_id
+                new_name = sequence.with_context(ir_sequence_date=move.date).next_by_id()
+                invoice.move_name = new_name
 
-                        new_name = sequence.with_context(ir_sequence_date=move.date).next_by_id()
-                    else:
-                        raise UserError('Please define a sequence on the journal.')
+                journal_name = move.journal_id.name
+                tracking = move._trigger_apply_matching_journal(journal_name, tracking)
 
-                if new_name:
-                    move.name = new_name
-
-            journal_name = move.journal_id.name
-            tracking = move._trigger_apply_matching_journal(journal_name, tracking)
-            # if journal_name not in tracking:
-            #     # Enable trigger to run finding possible match
-            #     self.trigger_apply_matching(self.build_batch_deposit_key(journal_name))
-            #     self.trigger_apply_matching(self.build_journal_item_key(journal_name))
-            #
-            #     tracking.add(journal_name)
-
-            if move == move.company_id.account_opening_move_id and not move.company_id.account_bank_reconciliation_start:
-                # For opening moves, we set the reconciliation date threshold
-                # to the move's date if it wasn't already set (we don't want
-                # to have to reconcile all the older payments -made before
-                # installing Accounting- with bank statements)
-                move.company_id.account_bank_reconciliation_start = move.date
-
-        return self.write({'state': 'posted'})
+        return super().post(invoice=invoice)
 
     @api.multi
     def button_cancel(self):
@@ -178,6 +146,7 @@ class AccountMoveLineUSA(models.Model):
     temporary_reconciled = fields.Boolean(copy=False)
     bank_reconciled = fields.Boolean(copy=False)
     is_fund_line = fields.Boolean(copy=False)
+    eligible_for_1099 = fields.Boolean(string='Eligible for 1099?', default=True)
 
     @api.multi
     def update_temporary_reconciled(self, ids, checked):

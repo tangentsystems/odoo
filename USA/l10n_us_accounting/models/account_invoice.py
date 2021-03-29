@@ -360,7 +360,7 @@ class AccountInvoiceUSA(models.Model):
             raise UserError(_(
                     'You cannot delete transaction which is not draft or canceled. Please cancel this transaction first.'))
         self.move_name = False
-        super(AccountInvoiceUSA, self).unlink()
+        self.unlink()
         return {'type': 'ir.actions.client', 'tag': 'history_back'}
 
     @api.multi
@@ -409,3 +409,7 @@ class AccountInvoiceUSA(models.Model):
                    self.state in ('open', 'paid') and _('Writeoff - %s') % (self.number)
         else:
             return super(AccountInvoiceUSA, self)._get_printed_report_name()
+
+    # Print report with payment
+    def print_invoice_report(self):
+        return self.env.ref('account.account_invoices').report_action(self)

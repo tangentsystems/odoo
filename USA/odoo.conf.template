@@ -1,13 +1,9 @@
 [options]
-max_cron_threads = {{ config['MAX_CRON_THREADS'] | default(1, true) }}
 proxy_mode = True
 addons_path = /opt/odoo/enterprise,/opt/odoo/shared_modules,/opt/odoo/odoo/addons,/opt/odoo/customized_addons
 data_dir = /var/lib/odoo/
 without_demo=all
-
-workers = {{ config['WORKERS'] | default(2, true) }}
-limit_time_cpu = 72000
-limit_time_real = 72000
+geoip_database = /usr/share/GeoIP/GeoIP.dat
 
 admin_passwd = {{ config['ADMIN_PASS'] | default("W$vH8x:rXWD>.+5(", true) }}
 db_maxconn = {{ config['DB_MAX_CONN'] | default(48, true) }}
@@ -15,6 +11,11 @@ db_host = {{ config['db_info']['Host'] | default("", true) }}
 db_port = 5432
 db_user = {{ config['db_info']['User'] | default("", true) }}
 db_password = {{ config['db_info']['Password'] | default("", true) }}
+
+workers = {{ config['WORKERS'] | default(4, true) }}
+limit_time_cpu = 72000
+limit_time_real = 72000
+max_cron_threads = 2
 
 {% if config['DB_FILTER'] is defined %}
 dbfilter = {{ config['DB_FILTER'] | default('', true) }}

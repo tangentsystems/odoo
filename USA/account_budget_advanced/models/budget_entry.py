@@ -237,11 +237,12 @@ class BudgetEntry(models.AbstractModel):
             'save_budget_import': True if import_data else False,
         })
 
+        analytic_account = budget.analytic_account_id.name if budget.analytic_account_id else False
         additional_context.update({
             'budget_entry': True,
             'crossovered_budget': budget,
-            'currency_id': self.env.user.company_id.currency_id
-
+            'currency_id': self.env.user.company_id.currency_id,
+            'analytic_account': analytic_account,
         })
 
         return super(BudgetEntry, self).get_html(options, line_id=line_id,

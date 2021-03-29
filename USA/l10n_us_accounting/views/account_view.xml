@@ -423,6 +423,5 @@
     </record>
 
     <!-- Hide some menus -->
-    <menuitem id="account.menu_action_manual_reconciliation" active="False"/>
     <menuitem id="account.action_account_reconcile_model_menu" active="False"/>
 </odoo>

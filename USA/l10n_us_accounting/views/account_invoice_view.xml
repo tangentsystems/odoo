@@ -6,6 +6,14 @@
         <field name="model">account.invoice</field>
         <field name="inherit_id" ref="account.invoice_form"/>
         <field name="arch" type="xml">
+            <div name="button_box" position="after">
+                <widget name="web_usa_ribbon" title="Paid"
+                        attrs="{'invisible': ['|', ('state', '!=', 'paid'), ('type', 'not in', ('out_invoice'))]}"/>
+                <widget name="web_usa_ribbon" title="Applied"
+                        attrs="{'invisible': ['|', ('state', '!=', 'paid'), ('type', 'not in', ('out_refund'))]}"/>
+                <widget name="web_usa_ribbon" title="In Payment"
+                        attrs="{'invisible': ['|', ('state', '!=', 'in_payment'), ('type', 'not in', ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt'))]}"/>
+            </div>
             <xpath expr="//div[hasclass('alert-info')]" position="after">
                 <div id="alert_info_customer_invoices" groups="account.group_account_invoice"
                      class="alert alert-info text_margin_bottom" role="alert"
@@ -44,19 +52,27 @@
             </field>
 
             <xpath expr="//h1[hasclass('mt0')]/../span[hasclass('o_form_label')]" position="attributes">
-                <attribute name="invisible">{'invisible': ['|', ('state', '=', 'draft'), '|', ('type', '!=', 'out_refund'), ('is_write_off', '=', True)]}</attribute>
+                <attribute name="invisible">{'invisible': ['|', ('state', '=', 'draft'), '|', ('type', '!=',
+                    'out_refund'), ('is_write_off', '=', True)]}
+                </attribute>
             </xpath>
             <xpath expr="((//h1[hasclass('mt0')]/*)[1]/label)[2]" position="after">
-                <label for="number" string="Draft Write-off" attrs="{'invisible': ['|', ('state', '!=', 'draft'), '|', ('type', '!=', 'out_refund'), ('is_write_off', '!=', True)]}"/>
+                <label for="number" string="Draft Write-off"
+                       attrs="{'invisible': ['|', ('state', '!=', 'draft'), '|', ('type', '!=', 'out_refund'), ('is_write_off', '!=', True)]}"/>
             </xpath>
             <xpath expr="((//h1[hasclass('mt0')]/*)[1]/label)[2]" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', ('state', '!=', 'draft'), '|', ('type', '!=', 'out_refund'), ('is_write_off', '=', True)]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', ('state', '!=', 'draft'), '|', ('type', '!=', 'out_refund'),
+                    ('is_write_off', '=', True)]}
+                </attribute>
             </xpath>
             <xpath expr="(//h1[hasclass('mt0')]/*)[2]/label" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', ('state', '!=', 'draft'), ('is_write_off', '=', True)]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', ('state', '!=', 'draft'), ('is_write_off', '=', True)]}
+                </attribute>
             </xpath>
             <xpath expr="(//h1[hasclass('mt0')]/*)[2]/label" position="after">
-                <label for="sequence_number_next_prefix" string="Write-offs Number:" attrs="{'invisible': ['|', ('state', '!=', 'draft'), ('is_write_off', '=', False)]}"/><br/>
+                <label for="sequence_number_next_prefix" string="Write-offs Number:"
+                       attrs="{'invisible': ['|', ('state', '!=', 'draft'), ('is_write_off', '=', False)]}"/>
+                <br/>
             </xpath>
 
             <field name="date_due" position="after">
@@ -72,7 +88,8 @@
             </field>
 
             <button id="account_invoice_payment_btn" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', ('type', '!=', 'out_invoice'), ('state', '!=', 'open')]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', ('type', '!=', 'out_invoice'), ('state', '!=', 'open')]}
+                </attribute>
                 <attribute name="string">Receive Payment</attribute>
             </button>
             <button id="account_invoice_payment_btn" position="after">
@@ -91,11 +108,13 @@
                         string="Write Off"
                         groups="account.group_account_invoice"
                         attrs="{'invisible': ['|', ('type', '!=', 'out_invoice'), ('state', '!=', 'open')]}"/>
+                <button name="print_invoice_report" string="Print" type="object"/>
             </button>
 
             <!--Show DELETE button-->
             <button name="action_invoice_draft" position="after">
-                <button name="action_delete" type="object" string="Delete" confirm="Are you sure you want to delete this transaction?"/>
+                <button name="action_delete" type="object" string="Delete"
+                        confirm="Are you sure you want to delete this transaction?"/>
             </button>
 
         </field>
@@ -118,20 +137,31 @@
         <field name="model">account.invoice</field>
         <field name="inherit_id" ref="account.invoice_supplier_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//sheet/div" position="before">
+                <widget name="web_usa_ribbon" title="Paid"
+                        attrs="{'invisible': ['|', ('state', '!=', 'paid'), ('type', 'not in', ('in_invoice'))]}"/>
+                <widget name="web_usa_ribbon" title="Applied"
+                        attrs="{'invisible': ['|', ('state', '!=', 'paid'), ('type', 'not in', ('in_refund'))]}"/>
+                <widget name="web_usa_ribbon" title="In Payment"
+                        attrs="{'invisible': ['|', ('state', '!=', 'in_payment'), ('type', 'not in', ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt'))]}"/>
+            </xpath>
             <button name="%(account.action_account_invoice_payment)d" position="after">
                 <button id="action_account_pay_bill_btn_usa" name="%(action_account_pay_bill_usa)d" type="action"
                         string="Pay Bill" groups="account.group_account_invoice"
                         attrs="{'invisible': ['|', ('type', '!=', 'in_invoice'), ('state', '!=', 'open')]}"
                         class="oe_highlight"/>
+                <button name="print_invoice_report" string="Print" type="object"/>
             </button>
             <button name="%(account.action_account_invoice_payment)d" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', ('type', '!=', 'in_refund'), ('state', '!=', 'open')]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', ('type', '!=', 'in_refund'), ('state', '!=', 'open')]}
+                </attribute>
                 <attribute name="states"></attribute>
             </button>
 
             <button name="action_invoice_draft" position="after">
                 <!--Show DELETE button-->
-                <button name="action_delete" type="object" string="Delete" confirm="Are you sure you want to delete this transaction?"/>
+                <button name="action_delete" type="object" string="Delete"
+                        confirm="Are you sure you want to delete this transaction?"/>
             </button>
 
             <xpath expr="//div[hasclass('alert-info')]" position="after">
@@ -185,7 +215,7 @@
                     <field name="number" string="Transaction"
                            filter_domain="['|','|','|', ('number','ilike',self), ('origin','ilike',self), ('reference', 'ilike', self), ('partner_id', 'child_of', self)]"/>
                     <field name="ar_in_charge" string="AR In Charge"/>
-                    <field name="journal_id" />
+                    <field name="journal_id"/>
                     <field name="partner_id" operator="child_of"/>
                     <field name="user_id" string="Salesperson" domain="[('share','=', False)]"/>
                     <field name="date" string="Period"/>
@@ -201,7 +231,9 @@
                     <filter name="draft" string="Draft" domain="[('state','=','draft')]"/>
                     <filter name="unpaid" string="Open" domain="[('state', '=', 'open')]"/>
                     <filter name="paid" string="Paid" domain="[('state', '=', 'paid')]"/>
-                    <filter name="late" string="Overdue" domain="['&amp;', ('date_due', '&lt;', time.strftime('%%Y-%%m-%%d')), ('state', '=', 'open')]" help="Overdue invoices, maturity date passed"/>
+                    <filter name="late" string="Overdue"
+                            domain="['&amp;', ('date_due', '&lt;', time.strftime('%%Y-%%m-%%d')), ('state', '=', 'open')]"
+                            help="Overdue invoices, maturity date passed"/>
                     <separator/>
 
                     <filter name="overdue_1_30" string="Aging 1-30 days"
@@ -218,7 +250,8 @@
                             domain="[('date_invoice', '&gt;=', context_today().strftime('%Y-%m-01')),
                                     ('date_invoice', '&lt;=', (context_today() + relativedelta(months=1, day=1, days=-1)).strftime('%Y-%m-%d'))]"/>
 
-                    <filter name="fiscal_quarter" string="This Fiscal Quarter" domain="[('fiscal_quarter', '=', True)]"/>
+                    <filter name="fiscal_quarter" string="This Fiscal Quarter"
+                            domain="[('fiscal_quarter', '=', True)]"/>
 
                     <filter name="fiscal_year" string="This Fiscal Year" domain="[('fiscal_year', '=', True)]"/>
                     <separator/>
@@ -230,7 +263,8 @@
                     <filter name="last_fiscal_quarter" string="Last Fiscal Quarter"
                             domain="[('last_fiscal_quarter', '=', True)]"/>
 
-                    <filter name="last_fiscal_year" string="Last Fiscal Year" domain="[('last_fiscal_year', '=', True)]"/>
+                    <filter name="last_fiscal_year" string="Last Fiscal Year"
+                            domain="[('last_fiscal_year', '=', True)]"/>
                     <separator/>
 
                     <filter name="my_invoices" string="My Transactions" domain="[('user_id','=',uid)]"/>
@@ -240,24 +274,25 @@
                     <separator/>
 
                     <filter string="Late Activities" name="activities_overdue"
-                        domain="[('activity_ids.date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"
-                        help="Show all records which has next action date is before today"/>
+                            domain="[('activity_ids.date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"
+                            help="Show all records which has next action date is before today"/>
                     <filter string="Today Activities" name="activities_today"
-                        domain="[('activity_ids.date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                            domain="[('activity_ids.date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
                     <filter string="Future Activities" name="activities_upcoming_all"
-                        domain="[('activity_ids.date_deadline', '&gt;', context_today().strftime('%Y-%m-%d'))]"/>
+                            domain="[('activity_ids.date_deadline', '&gt;', context_today().strftime('%Y-%m-%d'))]"/>
 
                     <group expand="0" string="Group By">
-                        <filter name="group_by_partner_id" string="Customer/Vendor" context="{'group_by':'commercial_partner_id'}"/>
+                        <filter name="group_by_partner_id" string="Customer/Vendor"
+                                context="{'group_by':'commercial_partner_id'}"/>
                         <filter string="Salesperson" name="salesperson" context="{'group_by':'user_id'}"
-                            invisible="context.get('type', False) in ('in_invoice', 'in_refund')"/>
+                                invisible="context.get('type', False) in ('in_invoice', 'in_refund')"/>
                         <filter name="group_ar_in_charge" string="AR In Charge" context="{'group_by': 'ar_in_charge'}"
-                            invisible="context.get('type', False) in ('in_invoice', 'in_refund')"/>
+                                invisible="context.get('type', False) in ('in_invoice', 'in_refund')"/>
                         <filter name="status" string="Status" context="{'group_by':'state'}"/>
                         <separator/>
                         <filter string="Transaction Date" name="invoicedate" context="{'group_by':'date_invoice'}"/>
                         <filter string="Due Date" name="duedate" context="{'group_by':'date_due'}"
-                            invisible="context.get('type', False) not in ('out_invoice', 'in_invoice')"/>
+                                invisible="context.get('type', False) not in ('out_invoice', 'in_invoice')"/>
                     </group>
                 </search>
             </search>
@@ -335,7 +370,9 @@
         <field name="view_mode">tree,kanban,form,calendar,pivot,graph</field>
         <field name="view_id" eval="False"/>
         <field name="domain">[('type', '=', 'out_refund'), ('is_write_off', '=', True)]</field>
-        <field name="context">{'default_type': 'out_refund', 'type': 'out_refund', 'journal_type': 'sale', 'default_is_write_off': True, 'is_write_off': True}</field>
+        <field name="context">{'default_type': 'out_refund', 'type': 'out_refund', 'journal_type': 'sale',
+            'default_is_write_off': True, 'is_write_off': True}
+        </field>
         <field name="search_view_id" ref="view_account_invoice_filter_inherit_customer_vendor_credit_notes_usa"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
@@ -352,7 +389,8 @@
         <field name="name">account.invoice.write.off.tree.usa</field>
         <field name="model">account.invoice</field>
         <field name="arch" type="xml">
-            <tree decoration-info="state == 'draft'" decoration-muted="state == 'cancel'" string="Invoice" create="false">
+            <tree decoration-info="state == 'draft'" decoration-muted="state == 'cancel'" string="Invoice"
+                  create="false">
                 <field name="partner_id" groups="base.group_user" string="Customer"/>
                 <field name="date_invoice" string="Date"/>
                 <field name="number"/>
@@ -403,10 +441,14 @@
             </field>
 
             <button name="action_invoice_sent" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', '|', ('is_write_off', '=', True), ('sent','=',True), ('state', 'not in', ('open','in_payment','paid'))]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', '|', ('is_write_off', '=', True), ('sent','=',True),
+                    ('state', 'not in', ('open','in_payment','paid'))]}
+                </attribute>
             </button>
             <xpath expr="//button[@name='action_invoice_sent'][2]" position="attributes">
-                <attribute name="attrs">{'invisible': ['|', '|', ('is_write_off', '=', True), ('sent','=',True), ('state', 'not in', ('open','in_payment','paid'))]}</attribute>
+                <attribute name="attrs">{'invisible': ['|', '|', ('is_write_off', '=', True), ('sent','=',True),
+                    ('state', 'not in', ('open','in_payment','paid'))]}
+                </attribute>
             </xpath>
         </field>
     </record>
@@ -429,7 +471,9 @@
     <!-- Customize Customer Credit Notes tree -->
     <record id="account.action_invoice_out_refund" model="ir.actions.act_window">
         <field name="domain">[('type', '=', 'out_refund'), ('is_write_off', '=', False)]</field>
-        <field name="context">{'default_type': 'out_refund', 'type': 'out_refund', 'journal_type': 'sale', 'default_is_write_off': False, 'is_write_off': False}</field>
+        <field name="context">{'default_type': 'out_refund', 'type': 'out_refund', 'journal_type': 'sale',
+            'default_is_write_off': False, 'is_write_off': False}
+        </field>
         <field name="search_view_id" ref="view_account_invoice_filter_inherit_customer_vendor_credit_notes_usa"/>
     </record>
     <!-- Customize search view of Vendor Bills -->
