@@ -92,7 +92,7 @@ class USABankReconciliation(models.AbstractModel):
             batch_ids = batch_ids.filtered(lambda x: x.date >= bank_reconciliation_data_id.start_date)
 
         for line in aml_ids:
-            partner_name = line.partner_id.name if line.partner_id else ''
+            partner_name = line.partner_id.name if line.partner_id and line.partner_id.name else ''
             check_number = line.payment_id.check_number if line.payment_id and line.payment_id.check_number else ''
             columns = [self._format_date(line.date),
                        {'name': partner_name[:20],

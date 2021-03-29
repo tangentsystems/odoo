@@ -36,4 +36,4 @@ class AccountMoveReversal(models.TransientModel):
                     }
             return {'type': 'ir.actions.act_window_close'}
         else:
-            return super().reverse_moves
+            return super().reverse_moves()

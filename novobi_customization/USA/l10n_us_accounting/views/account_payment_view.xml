@@ -14,6 +14,17 @@
                 </div>
             </header>
 
+            <!--Payment Receipts with Credit-->
+            <header position="inside">
+                <button name="print_payment_receipts_with_credit" 
+                        attrs="{'invisible': ['|', '|', '|',
+                        ('payment_method_code', '!=', 'check_printing'),
+                        ('state', 'not in', ['posted', 'sent', 'reconciled']),
+                        ('payment_type', '!=', 'outbound'), ('partner_type', '!=', 'supplier')
+                        ]}"
+                        string="Print Payment Receipts" type="object"/>
+            </header>
+
             <field name="payment_transaction_id" position="after">
                 <field name="ar_in_charge" attrs="{'invisible': [('payment_type', '!=', 'inbound')]}"/>
                 <field name="show_cancel_button" invisible="1"/>
@@ -92,10 +103,6 @@
 
             <!--Open Invoices-->
             <button name="button_invoices" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </button>
-
-            <button name="open_payment_matching_screen" position="attributes">
                 <attribute name="invisible">1</attribute>
             </button>
 
@@ -374,10 +381,11 @@
             <filter name="state_sent" position="before">
                 <filter string="Checks Have Been Cashed"
                         domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
-                        ('has_been_cashed', '=', True)]" name="checks_been_cashed"/>
+                        ('has_been_cashed', '=', True), ('has_been_voided', '=', False)]" name="checks_been_cashed"/>
                 <filter string="Checks to Cash"
                         domain="[('payment_method_id.code', 'in', ['check_printing', 'batch_payment']),
-                        ('has_been_cashed', '=', False), ('state', 'in', ['posted', 'sent'])]" name="checks_to_cash"/>
+                        ('has_been_cashed', '=', False), ('state', 'in', ['posted', 'sent']),
+                        ('has_been_voided', '=', False)]" name="checks_to_cash"/>
             </filter>
 
             <!--<filter context="{'group_by': 'partner_id'}" position="before">

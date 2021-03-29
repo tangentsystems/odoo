@@ -6,6 +6,10 @@
         <field name='model'>account.bank.reconciliation.data</field>
         <field name="arch" type="xml">
             <form create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_print_report" string="PRINT PDF"
+                            type="object" class="oe_highlight"/>
+                </header>
                 <sheet>
                     <field name="currency_id" invisible="1"/>
 
@@ -143,6 +147,11 @@
                         </tree>
                     </field>
                 </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="activity_ids" widget="mail_activity"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
             </form>
         </field>
     </record>

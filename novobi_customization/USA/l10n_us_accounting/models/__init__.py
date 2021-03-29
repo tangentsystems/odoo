@@ -23,3 +23,4 @@ from . import account_journal_dashboard
 from . import usa_bank_reconciliation
 from . import account_batch_deposit
 from . import account_voucher
+from . import account_account

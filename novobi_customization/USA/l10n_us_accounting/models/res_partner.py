@@ -21,16 +21,16 @@ class CustomerUSA(models.Model):
         suffix = sequence_id.suffix or ''
         return prefix + '{:0{size}}'.format(next_number, size=sequence_size) + suffix
 
-    @api.constrains('vat')
-    def _check_vat_format(self):
-        for record in self:
-            if record.vat:
-                if len(record.vat) != 10 or record.vat[2] != '-':
-                    raise ValidationError('EIN is not in the correct format')
-
-                for i in range(len(record.vat)):
-                    if i != 2 and not record.vat[i].isnumeric():
-                        raise ValidationError('EIN is not in the correct format')
+    # @api.constrains('vat')
+    # def _check_vat_format(self):
+    #     for record in self:
+    #         if record.vat:
+    #             if len(record.vat) != 10 or record.vat[2] != '-':
+    #                 raise ValidationError('EIN is not in the correct format')
+    #
+    #             for i in range(len(record.vat)):
+    #                 if i != 2 and not record.vat[i].isnumeric():
+    #                     raise ValidationError('EIN is not in the correct format')
 
     vat = fields.Char(string='EIN', help='Employer Identification Number')
     ref = fields.Char(string='Code', default=_get_default_ref)

@@ -17,6 +17,7 @@ class BankReconciliationData(models.Model):
     _name = 'account.bank.reconciliation.data'
     _description = 'Bank Reconciliation Data'
     _rec_name = 'statement_ending_date'
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'portal.mixin']
 
     journal_id = fields.Many2one('account.journal', 'Account')
     currency_id = fields.Many2one('res.currency',
@@ -346,6 +347,8 @@ class BankReconciliationData(models.Model):
         res = super(BankReconciliationData, self).write(vals)
         return res
 
+    def action_print_report(self):
+        return self.env.ref('l10n_us_accounting.account_bank_recon_data_report').report_action(self)
 
 class BankReconciliationDataLine(models.Model):
     _name = 'account.bank.reconciliation.data.line'

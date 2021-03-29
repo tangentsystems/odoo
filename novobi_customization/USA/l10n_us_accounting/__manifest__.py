@@ -18,6 +18,7 @@
         'account_batch_payment',
         'l10n_us_check_printing',
         'account_voucher',
+        'odoo_12_ribbon',
     ],
 
     'data': [
@@ -62,14 +63,22 @@
         'views/usa_bank_reconciliation.xml',
         'views/account_move_view.xml',
         'views/followup_view.xml',
+        'views/account_account_views.xml',
+        'views/account_move_line_views.xml',
+        'views/usa_1099_report.xml',
 
         'report/list_invoices_templates.xml',
         'report/account_followup_report_templates.xml',
         'report/print_check.xml',
         'report/account_batch_deposit_report_templates.xml',
         'report/vendor_1099_report_template.xml',
+        'report/report_payment_receipt_templates.xml',
+        'report/account_bank_recon_data_report.xml',
 
         'security/ir.model.access.csv',
     ],
     'qweb': ['static/src/xml/*.xml'],
+    'installable': True,
+    'auto_install': False,
+    'application': True,
 }

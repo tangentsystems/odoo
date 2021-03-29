@@ -4,7 +4,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools import float_compare
-from odoo.tools.misc import formatLang
+from odoo.tools.misc import formatLang, format_date
 from ..utils.utils import has_multi_currency_group
 
 
@@ -324,26 +324,17 @@ class AccountPaymentUSA(models.Model):
         res = super()._check_make_stub_line(invoice)
 
         # Get Credit/Discount Amount
-        credit_amount = 0
+        credit_amount = balance_due = 0
         amount_field = 'amount_currency' if self.currency_id != self.journal_id.company_id.currency_id else 'amount'
         # Looking for Vendor Credit Note in Vendor Bill
         if invoice.type in ['in_invoice', 'out_refund']:
             # This is for Vendor Bill only
-            credit_note_ids = invoice.move_id.line_ids.mapped('matched_debit_ids').filtered(
-                lambda r: r.debit_move_id.invoice_id and r.debit_move_id.invoice_id.type == 'in_refund')
-            credit_amount = abs(sum(credit_note_ids.mapped(amount_field)))
-
-            # Calculate Other Payment amount
-            other_payment_ids = invoice.move_id.line_ids.mapped('matched_debit_ids').filtered(
-                lambda r: r.debit_move_id not in self.move_line_ids and r.id not in credit_note_ids.ids)
-            other_payment_amount = abs(sum(other_payment_ids.mapped(amount_field)))
-
-        # Update Amount Residual, BEFORE apply this check
-        amount_residual = invoice.amount_total - other_payment_amount
+            credit_partial_ids, balance_due = self._calculate_balance_due(invoice.move_id, amount_field, invoice.amount_total)
+            credit_amount = abs(sum(credit_partial_ids.mapped(amount_field)))
 
         res.update({'credit_amount': formatLang(self.env, credit_amount, currency_obj=invoice.currency_id),
-                    'amount_residual': formatLang(self.env, amount_residual,
-                                                  currency_obj=invoice.currency_id) if amount_residual * 10 ** 4 != 0 else '-'
+                    'amount_residual': formatLang(self.env, balance_due,
+                                                  currency_obj=invoice.currency_id) if balance_due * 10 ** 4 != 0 else '-'
                     })
 
         return res
@@ -355,6 +346,83 @@ class AccountPaymentUSA(models.Model):
             res['partner_name'] = self.partner_id.check_name
 
         return res
+
+    # Print Payment Receipts (with Credit memo)
+    def print_payment_receipts_with_credit(self):
+        return self.env.ref('l10n_us_accounting.action_report_payment_receipt_credit').report_action(self)
+
+    def _calculate_balance_due(self, move_id, amount_field, original_amt):
+        credit_partial_ids = move_id.line_ids.mapped('matched_debit_ids').filtered(
+            lambda r: r.debit_move_id.invoice_id and r.debit_move_id.invoice_id.type == 'in_refund')
+
+        # Calculate Other Payment amount
+        other_payment_ids = move_id.line_ids.mapped('matched_debit_ids').filtered(
+            lambda r: r.debit_move_id not in self.move_line_ids and r.id not in credit_partial_ids.ids)
+        other_payment_amount = abs(sum(other_payment_ids.mapped(amount_field)))
+
+        balance_due = original_amt - other_payment_amount
+        return credit_partial_ids, balance_due
+
+    def _get_payment_receipt_credit(self):
+        def _build_credit_note_lines(credits, credit_note_ids):
+            for line in credit_note_ids:
+                credit_id = line.debit_move_id.invoice_id
+                credits.append({'date': format_date(self.env, credit_id.date_due),
+                                'description': credit_id.number,
+                                'vendor_ref': credit_id.reference or "",
+                                'original_amt': "",
+                                'balance_due': "",
+                                'credit_amt': formatLang(self.env, -1 * line[amount_field], currency_obj=credit_id.currency_id),
+                                'payment_amt': "",
+                                })
+            return credits
+
+        # Return dictionary to render lines in payment receipts with credit report
+        self.ensure_one()
+
+        lines = []
+        credits = []
+        amount_field = 'amount_currency' if self.currency_id != self.journal_id.company_id.currency_id else 'amount'
+
+        # Get all transactions paid with this Bill:
+        # Bill: Debit AP => matched_credit_ids + credit_move_id
+        partial_lines = self.move_line_ids.mapped('matched_credit_ids').sorted(key=lambda r: r.max_date)
+
+        for line in partial_lines:
+            move_line = line.credit_move_id
+            payment_amt = abs(line[amount_field])
+
+            bill_id = move_line.invoice_id
+            if bill_id:
+                original_amt = bill_id.amount_total
+                credit_partial_ids, balance_due = self._calculate_balance_due(bill_id.move_id, amount_field, original_amt)
+                credits = _build_credit_note_lines(credits, credit_partial_ids)
+
+                lines.append({'date': format_date(self.env, bill_id.date_due),
+                              'description': bill_id.number,
+                              'vendor_ref': bill_id.reference or "",
+                              'original_amt': formatLang(self.env, original_amt, currency_obj=bill_id.currency_id),
+                              'balance_due': formatLang(self.env, balance_due, currency_obj=bill_id.currency_id),
+                              'credit_amt': "",
+                              'payment_amt': formatLang(self.env, payment_amt, currency_obj=bill_id.currency_id),
+                              })
+            else:
+                # Journal Item
+                move_id = move_line.move_id
+                original_amt = abs(move_line.balance)
+                credit_partial_ids, balance_due = self._calculate_balance_due(move_id, amount_field, original_amt)
+                credits = _build_credit_note_lines(credits, credit_partial_ids)
+
+                lines.append({'date': format_date(self.env, move_line.date_maturity),
+                              'description': move_id.name,
+                              'vendor_ref': move_id.ref or "",
+                              'original_amt': formatLang(self.env, original_amt,
+                                                         currency_obj=move_id.currency_id),
+                              'balance_due': formatLang(self.env, balance_due, currency_obj=move_id.currency_id),
+                              'credit_amt': "",
+                              'payment_amt': formatLang(self.env, payment_amt, currency_obj=move_id.currency_id),
+                              })
+        return lines + credits
 
     ####################################################
     # CRUD methods

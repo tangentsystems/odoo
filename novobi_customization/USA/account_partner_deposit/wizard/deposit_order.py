@@ -10,7 +10,7 @@ class DepositOrder(models.TransientModel):
 
     deposit_option = fields.Selection([
         ('fixed', 'By fixed amount'),
-        ('percentage', 'By percentage')
+        ('percentage', 'By percentage of SO/PO total amount')
     ], string='How do you want to make a deposit?', default='fixed')
 
     amount = fields.Float('Deposit amount', digits=dp.get_precision('Account'))

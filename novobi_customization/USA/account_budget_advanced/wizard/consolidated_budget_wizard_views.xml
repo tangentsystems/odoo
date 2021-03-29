@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--Default Wizard-->
+    <record id="consolidated_budget_wizard_form_view" model="ir.ui.view">
+        <field name='name'>consolidated_budget_wizard_form_view</field>
+        <field name='model'>consolidated.budget.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="budget_ids">
+                    <tree string="__noStickyHeader__" create="0" edit="0" delete="0">
+                        <field name="name"/>
+                        <field name="budget_type"/>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="analytic_account_id"/>
+                        <field name="state" invisible="1"/>
+                    </tree>
+                </field>
+                <footer>
+                    <button string='View report' name="action_view_report" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Server action -->
+    <record id="consolidated_budget_wizard_action" model="ir.actions.act_window">
+        <field name="name">See Consolidated reports</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">consolidated.budget.wizard</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="account_budget.model_crossovered_budget"/>
+    </record>
+</odoo>
