@@ -53,6 +53,7 @@ class AccountCachingMixinUSA(models.AbstractModel):
         _trigger(self, journal_name, tracking)
 
         if self:
+            account_ids = []
             if self._name == 'account.move' and self.line_ids:
                 account_ids = self.line_ids.mapped('account_id').ids
             elif self._name == 'account.move.line':
