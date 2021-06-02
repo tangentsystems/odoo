@@ -51,7 +51,8 @@ class AccountMoveLine(models.Model):
                             SUM("account_move_line".credit) as total_credit,
                             SUM("account_move_line".debit) as total_debit
 
-                        FROM "account_move" as "account_move_line__move_id","account_move_line" 
+                        FROM "account_move" as "account_move_line__move_id","account_move_line",
+                            "account_account" as "account_move_line__account_id"
 
                         WHERE ("account_move_line"."move_id"="account_move_line__move_id"."id") AND
                             "account_move_line".date >= %s AND
